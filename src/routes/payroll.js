@@ -2,16 +2,22 @@ const router = require('express').Router();
 const Payroll = require('../models/Payroll');
 const Job = require('../models/Job');
 const Karagar = require('../models/Karagar');
-const { auth } = require('../middleware/auth');
+const { auth, requireRole } = require('../middleware/auth');
 
 // GET /payroll
 router.get('/', auth, async (req, res) => {
   try {
     const filter = {};
     if (req.query.karagarId) filter.karagarId = req.query.karagarId;
+    if (req.query.status) filter.status = req.query.status;
+    const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 20;
-    const items = await Payroll.find(filter).sort({ createdAt: -1 }).limit(limit);
-    res.json({ data: { items, total: items.length } });
+    const skip = (page - 1) * limit;
+    const [items, total] = await Promise.all([
+      Payroll.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit),
+      Payroll.countDocuments(filter),
+    ]);
+    res.json({ data: { items, total, page, limit } });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -29,16 +35,20 @@ router.get('/:id', auth, async (req, res) => {
 });
 
 // POST /payroll/generate
-router.post('/generate', auth, async (req, res) => {
+router.post('/generate', auth, requireRole('admin', 'manager'), async (req, res) => {
   try {
     const { karagarId, periodStart, periodEnd } = req.body;
+    if (!karagarId || !periodStart || !periodEnd)
+      return res.status(400).json({ message: 'karagarId, periodStart, periodEnd required' });
+
     const karagar = await Karagar.findById(karagarId);
     if (!karagar) return res.status(404).json({ message: 'Karagar not found' });
 
+    // Find completed jobs for this karagar whose dueDate falls in the period
     const jobs = await Job.find({
       karagarId,
       status: 'completed',
-      createdAt: { $gte: new Date(periodStart), $lte: new Date(periodEnd) },
+      dueDate: { $gte: new Date(periodStart), $lte: new Date(periodEnd) },
     });
 
     const grossLabor = jobs.reduce((sum, j) => sum + j.pieceCount * j.laborRatePerPiece, 0);
@@ -68,17 +78,14 @@ router.post('/generate', auth, async (req, res) => {
 });
 
 // POST /payroll/:id/approve
-router.post('/:id/approve', auth, async (req, res) => {
+router.post('/:id/approve', auth, requireRole('admin', 'manager'), async (req, res) => {
   try {
     const payroll = await Payroll.findById(req.params.id);
     if (!payroll) return res.status(404).json({ message: 'Payroll not found' });
+    if (payroll.status === 'paid') return res.status(400).json({ message: 'Already paid' });
 
-    const incentive = req.body.approvedIncentivePaise
-      ? req.body.approvedIncentivePaise / 100
-      : req.body.approvedIncentiveRupees || 0;
-    const penalty = req.body.approvedPenaltyPaise
-      ? req.body.approvedPenaltyPaise / 100
-      : req.body.approvedPenaltyRupees || 0;
+    const incentive = Number(req.body.approvedIncentiveRupees) || 0;
+    const penalty = Number(req.body.approvedPenaltyRupees) || 0;
 
     payroll.approvedIncentiveRupees = incentive;
     payroll.approvedPenaltyRupees = penalty;
@@ -94,18 +101,19 @@ router.post('/:id/approve', auth, async (req, res) => {
 });
 
 // POST /payroll/:id/payment
-router.post('/:id/payment', auth, async (req, res) => {
+router.post('/:id/payment', auth, requireRole('admin', 'manager'), async (req, res) => {
   try {
     const payroll = await Payroll.findById(req.params.id);
     if (!payroll) return res.status(404).json({ message: 'Payroll not found' });
+    if (payroll.status === 'paid') return res.status(400).json({ message: 'Already fully paid' });
+    if (!['approved', 'partiallyPaid'].includes(payroll.status))
+      return res.status(400).json({ message: 'Payroll must be approved before payment' });
 
-    const amount = req.body.amountPaise
-      ? req.body.amountPaise / 100
-      : req.body.amountRupees;
+    const amount = Number(req.body.amountRupees) || 0;
+    if (amount <= 0) return res.status(400).json({ message: 'Amount must be positive' });
 
     payroll.paidRupees = Math.min(payroll.paidRupees + amount, payroll.netPayableRupees);
-    payroll.status =
-      payroll.paidRupees >= payroll.netPayableRupees ? 'paid' : 'partiallyPaid';
+    payroll.status = payroll.paidRupees >= payroll.netPayableRupees ? 'paid' : 'partiallyPaid';
     await payroll.save();
 
     res.json({ data: payroll });

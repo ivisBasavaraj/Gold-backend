@@ -1,15 +1,29 @@
 const router = require('express').Router();
 const Job = require('../models/Job');
 const Karagar = require('../models/Karagar');
-const { auth } = require('../middleware/auth');
+const { auth, requireRole } = require('../middleware/auth');
 
 // GET /jobs
 router.get('/', auth, async (req, res) => {
   try {
     const filter = {};
     if (req.query.status) filter.status = req.query.status;
-    const jobs = await Job.find(filter).sort({ createdAt: -1 });
-    res.json({ data: { items: jobs, total: jobs.length } });
+    if (req.query.karagarId) filter.karagarId = req.query.karagarId;
+    if (req.query.meltingGroup) filter.meltingGroup = req.query.meltingGroup;
+    if (req.query.search) filter.$or = [
+      { title: { $regex: req.query.search, $options: 'i' } },
+      { jobNumber: { $regex: req.query.search, $options: 'i' } },
+    ];
+
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 50;
+    const skip = (page - 1) * limit;
+
+    const [items, total] = await Promise.all([
+      Job.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit),
+      Job.countDocuments(filter),
+    ]);
+    res.json({ data: { items, total, page, limit } });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -18,8 +32,7 @@ router.get('/', auth, async (req, res) => {
 // GET /jobs/my-jobs
 router.get('/my-jobs', auth, async (req, res) => {
   try {
-    const user = req.user;
-    const filter = user.karagarId ? { karagarId: user.karagarId } : {};
+    const filter = req.user.karagarId ? { karagarId: req.user.karagarId } : {};
     const jobs = await Job.find(filter).sort({ createdAt: -1 });
     res.json({ data: { items: jobs, total: jobs.length } });
   } catch (err) {
@@ -39,34 +52,25 @@ router.get('/:id', auth, async (req, res) => {
 });
 
 // POST /jobs
-router.post('/', auth, async (req, res) => {
+router.post('/', auth, requireRole('admin', 'manager'), async (req, res) => {
   try {
     const karagar = await Karagar.findById(req.body.karagarId);
     if (!karagar) return res.status(404).json({ message: 'Karagar not found' });
+    if (!karagar.isActive) return res.status(400).json({ message: 'Karagar is inactive' });
 
     const count = await Job.countDocuments();
     const jobNumber = String(1000 + count + 1);
-
-    const weightGrams = req.body.requiredWeightMg
-      ? req.body.requiredWeightMg / 1000
-      : req.body.requiredWeightGrams;
-    const laborRate = req.body.laborRatePerPiecePaise
-      ? req.body.laborRatePerPiecePaise / 100
-      : req.body.laborRatePerPiece;
-    const wastage = req.body.wastageAllowanceMg
-      ? req.body.wastageAllowanceMg / 1000
-      : req.body.wastageAllowanceGrams;
 
     const job = await Job.create({
       jobNumber,
       title: req.body.title,
       jewelryCategory: req.body.jewelryCategory,
       pieceCount: req.body.pieceCount,
-      requiredWeightGrams: weightGrams,
+      requiredWeightGrams: req.body.requiredWeightGrams,
       purity: req.body.purity,
       meltingGroup: req.body.meltingGroup,
-      laborRatePerPiece: laborRate,
-      wastageAllowanceGrams: wastage,
+      laborRatePerPiece: req.body.laborRatePerPiece,
+      wastageAllowanceGrams: req.body.wastageAllowanceGrams,
       dueDate: req.body.dueDate,
       karagarId: karagar._id,
       karagarName: karagar.name,
@@ -83,8 +87,18 @@ router.post('/', auth, async (req, res) => {
 // PATCH /jobs/:id
 router.patch('/:id', auth, async (req, res) => {
   try {
-    const job = await Job.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const allowed = ['status', 'issuedWeightGrams', 'returnedWeightGrams', 'notes', 'dueDate'];
+    const update = {};
+    allowed.forEach(f => { if (req.body[f] !== undefined) update[f] = req.body[f]; });
+
+    const job = await Job.findByIdAndUpdate(req.params.id, update, { new: true, runValidators: true });
     if (!job) return res.status(404).json({ message: 'Job not found' });
+
+    // Decrement activeJobCount when job is completed or cancelled
+    if (update.status === 'completed' || update.status === 'cancelled') {
+      await Karagar.findByIdAndUpdate(job.karagarId, { $inc: { activeJobCount: -1 } });
+    }
+
     res.json({ data: job });
   } catch (err) {
     res.status(400).json({ message: err.message });

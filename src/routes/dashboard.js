@@ -11,15 +11,15 @@ router.get('/summary', auth, async (req, res) => {
   try {
     const [totalKaragars, jobs, advances, payrolls, treasury] = await Promise.all([
       Karagar.countDocuments({ isActive: true }),
-      Job.find(),
-      Advance.find(),
-      Payroll.find(),
+      Job.find().select('issuedWeightGrams status'),
+      Advance.find().select('amountRupees'),
+      Payroll.find().select('netPayableRupees'),
       Treasury.findOne(),
     ]);
 
-    const totalGoldIssued = jobs.reduce((s, j) => s + j.issuedWeightGrams, 0);
-    const totalAdvance = advances.reduce((s, a) => s + a.amountRupees, 0);
-    const totalSalary = payrolls.reduce((s, p) => s + p.netPayableRupees, 0);
+    const totalGoldIssuedGrams = jobs.reduce((s, j) => s + j.issuedWeightGrams, 0);
+    const totalAdvancePaidRupees = advances.reduce((s, a) => s + a.amountRupees, 0);
+    const totalSalaryRupees = payrolls.reduce((s, p) => s + p.netPayableRupees, 0);
 
     const t = treasury || {
       openingReserveGrams: 1000,
@@ -27,24 +27,26 @@ router.get('/summary', auth, async (req, res) => {
       issuedGoldGrams: 420,
       returnedGoldGrams: 70,
     };
-    const inCirculation = t.issuedGoldGrams - t.returnedGoldGrams;
+    const inCirculationGrams = t.issuedGoldGrams - t.returnedGoldGrams;
     const reserveRemainingPercent =
       t.openingReserveGrams > 0
         ? (t.availableGoldGrams / t.openingReserveGrams) * 100
         : 0;
 
     res.json({
-      totalKaragars,
-      totalGoldIssuedGrams: totalGoldIssued,
-      totalAdvancePaidRupees: totalAdvance,
-      totalSalaryRupees: totalSalary,
-      treasury: {
-        openingReserveGrams: t.openingReserveGrams,
-        availableGoldGrams: t.availableGoldGrams,
-        issuedGoldGrams: t.issuedGoldGrams,
-        returnedGoldGrams: t.returnedGoldGrams,
-        inCirculationGrams: inCirculation,
-        reserveRemainingPercent,
+      data: {
+        totalKaragars,
+        totalGoldIssuedGrams,
+        totalAdvancePaidRupees,
+        totalSalaryRupees,
+        treasury: {
+          openingReserveGrams: t.openingReserveGrams,
+          availableGoldGrams: t.availableGoldGrams,
+          issuedGoldGrams: t.issuedGoldGrams,
+          returnedGoldGrams: t.returnedGoldGrams,
+          inCirculationGrams,
+          reserveRemainingPercent,
+        },
       },
     });
   } catch (err) {

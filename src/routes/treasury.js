@@ -1,37 +1,67 @@
 const router = require('express').Router();
 const { Treasury, TreasuryTx } = require('../models/Treasury');
-const { auth } = require('../middleware/auth');
+const { auth, requireRole } = require('../middleware/auth');
+
+function buildSummary(treasury) {
+  const inCirculation = treasury.issuedGoldGrams - treasury.returnedGoldGrams;
+  const reserveRemainingPercent =
+    treasury.openingReserveGrams > 0
+      ? (treasury.availableGoldGrams / treasury.openingReserveGrams) * 100
+      : 0;
+  return {
+    openingReserveGrams: treasury.openingReserveGrams,
+    availableGoldGrams: treasury.availableGoldGrams,
+    issuedGoldGrams: treasury.issuedGoldGrams,
+    returnedGoldGrams: treasury.returnedGoldGrams,
+    inCirculationGrams: inCirculation,
+    reserveRemainingPercent,
+  };
+}
+
+async function getOrCreateTreasury() {
+  let t = await Treasury.findOne();
+  if (!t) {
+    t = await Treasury.create({
+      openingReserveGrams: 1000,
+      availableGoldGrams: 1000,
+      issuedGoldGrams: 0,
+      returnedGoldGrams: 0,
+    });
+  }
+  return t;
+}
 
 // GET /treasury/summary
 router.get('/summary', auth, async (req, res) => {
   try {
-    let treasury = await Treasury.findOne();
-    if (!treasury) {
-      treasury = await Treasury.create({
-        openingReserveGrams: 1000,
-        availableGoldGrams: 650,
-        issuedGoldGrams: 420,
-        returnedGoldGrams: 70,
-      });
-    }
-    const inCirculation = treasury.issuedGoldGrams - treasury.returnedGoldGrams;
-    const reserveRemainingPercent =
-      treasury.openingReserveGrams > 0
-        ? (treasury.availableGoldGrams / treasury.openingReserveGrams) * 100
-        : 0;
-
-    res.json({
-      data: {
-        openingReserveGrams: treasury.openingReserveGrams,
-        availableGoldGrams: treasury.availableGoldGrams,
-        issuedGoldGrams: treasury.issuedGoldGrams,
-        returnedGoldGrams: treasury.returnedGoldGrams,
-        inCirculationGrams: inCirculation,
-        reserveRemainingPercent,
-      },
-    });
+    const treasury = await getOrCreateTreasury();
+    res.json({ data: buildSummary(treasury) });
   } catch (err) {
     res.status(500).json({ message: err.message });
+  }
+});
+
+// PATCH /treasury/reserve — update opening reserve (admin/manager only)
+router.patch('/reserve', auth, requireRole('admin', 'manager'), async (req, res) => {
+  try {
+    const { openingReserveGrams, availableGoldGrams } = req.body;
+    if (openingReserveGrams == null) return res.status(400).json({ message: 'openingReserveGrams required' });
+
+    const treasury = await getOrCreateTreasury();
+    treasury.openingReserveGrams = openingReserveGrams;
+    if (availableGoldGrams != null) treasury.availableGoldGrams = availableGoldGrams;
+    await treasury.save();
+
+    await TreasuryTx.create({
+      type: 'adjustment',
+      description: `Reserve updated to ${openingReserveGrams}g by ${req.user.name}`,
+      amountMg: 0,
+      balanceAfterMg: treasury.availableGoldGrams * 1000,
+    });
+
+    res.json({ data: buildSummary(treasury) });
+  } catch (err) {
+    res.status(400).json({ message: err.message });
   }
 });
 

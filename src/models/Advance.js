@@ -7,7 +7,7 @@ const advanceSchema = new mongoose.Schema({
   amountRupees: { type: Number, required: true },
   repaidRupees: { type: Number, default: 0 },
   fullyRepaid: { type: Boolean, default: false },
-  paymentMode: { type: String, enum: ['cash', 'upi', 'bankTransfer'], default: 'cash' },
+  paymentMode: { type: String, enum: ['cash', 'upi', 'bank', 'bankTransfer'], default: 'cash' },
   purpose: String,
   referenceNumber: String,
 }, { timestamps: true });
