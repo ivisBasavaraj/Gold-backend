@@ -72,19 +72,17 @@ router.post('/logout', auth, (req, res) => {
 // POST /auth/seed — create demo users if none exist
 router.post('/seed', async (req, res) => {
   try {
-    const count = await User.countDocuments();
-    if (count > 0) {
-      await User.deleteMany({});
+    await User.deleteMany({});
+    const users = [
+      { name: 'Workshop Manager', username: 'manager', password: 'demo1234', role: 'manager', employeeCode: 'MGR-001' },
+      { name: 'Admin User',       username: 'admin',   password: 'demo1234', role: 'admin',   employeeCode: 'ADM-001' },
+      { name: 'Raju Kumar',       username: 'karagar1',password: 'demo1234', role: 'karagar', employeeCode: 'GC-001'  },
+      { name: 'Suresh Patil',     username: 'karagar2',password: 'demo1234', role: 'karagar', employeeCode: 'GC-002'  },
+    ];
+    for (const u of users) {
+      await new User(u).save();
     }
-    const bcrypt = require('bcryptjs');
-    const hash = (p) => bcrypt.hash(p, 10);
-    await User.create([
-      { name: 'Workshop Manager', username: 'manager', password: await hash('demo1234'), role: 'manager', employeeCode: 'MGR-001' },
-      { name: 'Admin User',       username: 'admin',   password: await hash('demo1234'), role: 'admin',   employeeCode: 'ADM-001' },
-      { name: 'Raju Kumar',       username: 'karagar1',password: await hash('demo1234'), role: 'karagar', employeeCode: 'GC-001'  },
-      { name: 'Suresh Patil',     username: 'karagar2',password: await hash('demo1234'), role: 'karagar', employeeCode: 'GC-002'  },
-    ]);
-    res.json({ success: true, message: 'Demo users seeded', users: ['manager','admin','karagar1','karagar2'] });
+    res.json({ success: true, message: 'Demo users seeded', users: users.map(u => u.username) });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
