@@ -43,4 +43,12 @@ export class AuthController {
     const result = await this.authService.getMe(user.id);
     return ApiResponse.ok(result);
   }
+
+  @Post('seed')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Force reseed demo users (dev only)' })
+  async seed() {
+    const result = await this.authService.forceSeedDemoUsers();
+    return ApiResponse.ok(result, 'Demo users seeded successfully');
+  }
 }

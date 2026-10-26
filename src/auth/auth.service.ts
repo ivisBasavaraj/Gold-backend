@@ -82,8 +82,18 @@ export class AuthService {
   async seedDemoUsers() {
     const count = await this.userModel.countDocuments();
     if (count > 0) return;
+    await this._insertDemoUsers();
+  }
 
-    const rounds = this.config.get<number>('bcrypt.rounds') ?? 12;
+  // Force reseed — wipes users and recreates them
+  async forceSeedDemoUsers() {
+    await this.userModel.deleteMany({});
+    await this._insertDemoUsers();
+    return { seeded: true, users: ['manager', 'admin', 'karagar1', 'karagar2'] };
+  }
+
+  private async _insertDemoUsers() {
+    const rounds = this.config.get<number>('bcrypt.rounds') ?? 10;
     const hash = (p: string) => bcrypt.hash(p, rounds);
 
     await this.userModel.insertMany([
