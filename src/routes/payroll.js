@@ -65,11 +65,11 @@ router.post('/generate', auth, requireRole('admin', 'manager'), async (req, res)
     const karagar = await Karagar.findById(karagarId);
     if (!karagar) return res.status(404).json({ message: 'Karagar not found' });
 
-    // Find completed jobs for this karagar whose dueDate falls in the period
+    // Find completed jobs for this karagar that were completed within the period
     const jobs = await Job.find({
       karagarId,
       status: 'completed',
-      dueDate: { $gte: new Date(periodStart), $lte: new Date(periodEnd) },
+      updatedAt: { $gte: new Date(periodStart), $lte: new Date(periodEnd) },
     });
 
     const grossLabor = jobs.reduce((sum, j) => sum + j.pieceCount * j.laborRatePerPiece, 0);
