@@ -38,9 +38,13 @@ export class ApprovePayrollDto {
 }
 
 export class RecordPaymentDto {
-  @ApiProperty({ description: 'Amount paid in paise' })
-  @IsNumber() @Min(1)
-  amountPaise: number;
+  @ApiPropertyOptional({ description: 'Amount paid in paise (preferred)' })
+  @IsOptional() @IsNumber() @Min(1)
+  amountPaise?: number;
+
+  @ApiPropertyOptional({ description: 'Amount paid in rupees (converted to paise internally)' })
+  @IsOptional() @IsNumber() @Min(0.01)
+  amountRupees?: number;
 
   @ApiPropertyOptional()
   @IsOptional() @IsString()

@@ -30,13 +30,13 @@ export class MaterialReceipt {
   @Prop({ required: true, min: 1 })
   physicalWeightMg: number;
 
-  @Prop({ required: true, min: 0, max: 1 })
+  @Prop({ default: 1.0, min: 0, max: 1 })
   purity: number;
 
-  @Prop({ required: true })
+  @Prop({ default: 0 })
   pureGoldEquivalentMg: number;
 
-  @Prop({ required: true })
+  @Prop({ default: '' })
   meltingGroup: string;
 
   @Prop({ type: Types.ObjectId, ref: 'User', required: true })

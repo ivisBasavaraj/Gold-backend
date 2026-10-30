@@ -7,9 +7,13 @@ export class CreateAdvanceDto {
   @IsString() @IsNotEmpty()
   karagarId: string;
 
-  @ApiProperty({ description: 'Amount in paise' })
-  @IsNumber() @Min(1)
-  amountPaise: number;
+  @ApiPropertyOptional({ description: 'Amount in paise (preferred)' })
+  @IsOptional() @IsNumber() @Min(1)
+  amountPaise?: number;
+
+  @ApiPropertyOptional({ description: 'Amount in rupees (converted to paise internally)' })
+  @IsOptional() @IsNumber() @Min(0.01)
+  amountRupees?: number;
 
   @ApiProperty({ enum: PaymentMode })
   @IsEnum(PaymentMode)

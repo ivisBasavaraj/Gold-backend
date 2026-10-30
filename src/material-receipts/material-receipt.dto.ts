@@ -15,9 +15,9 @@ export class CreateReceiptDto {
   @IsNumber() @Min(1)
   physicalWeightMg: number;
 
-  @ApiProperty({ example: 0.916 })
-  @IsNumber() @Min(0) @Max(1)
-  purity: number;
+  @ApiPropertyOptional({ example: 1.0, description: 'Purity as decimal, defaults to 1.0' })
+  @IsOptional() @IsNumber() @Min(0) @Max(1)
+  purity?: number;
 
   @ApiPropertyOptional()
   @IsOptional() @IsString()

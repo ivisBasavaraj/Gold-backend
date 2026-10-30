@@ -7,33 +7,33 @@ export class CreateJobDto {
   @IsString() @IsNotEmpty()
   title: string;
 
-  @ApiProperty({ example: 'Bangles' })
-  @IsString() @IsNotEmpty()
-  jewelryCategory: string;
+  @ApiPropertyOptional({ example: 'Bangles' })
+  @IsOptional() @IsString()
+  jewelryCategory?: string;
 
-  @ApiProperty({ example: 8 })
-  @IsNumber() @Min(1)
-  pieceCount: number;
+  @ApiPropertyOptional({ example: 8 })
+  @IsOptional() @IsNumber() @Min(1)
+  pieceCount?: number;
 
   @ApiProperty({ example: 120000, description: 'Weight in milligrams' })
   @IsNumber() @Min(1)
   requiredWeightMg: number;
 
-  @ApiProperty({ example: 0.916, description: 'Purity as decimal (0.916 = 22K)' })
-  @IsNumber() @Min(0) @Max(1)
-  purity: number;
+  @ApiPropertyOptional({ example: 0.916, description: 'Purity as decimal (0.916 = 22K)' })
+  @IsOptional() @IsNumber() @Min(0) @Max(1)
+  purity?: number;
 
-  @ApiProperty({ example: 'Group A' })
-  @IsString() @IsNotEmpty()
-  meltingGroup: string;
+  @ApiPropertyOptional({ example: 'Group A' })
+  @IsOptional() @IsString()
+  meltingGroup?: string;
 
-  @ApiProperty({ example: 25000, description: 'Labor rate per piece in paise' })
-  @IsNumber() @Min(0)
-  laborRatePerPiecePaise: number;
+  @ApiPropertyOptional({ example: 25000, description: 'Labor rate per piece in paise' })
+  @IsOptional() @IsNumber() @Min(0)
+  laborRatePerPiecePaise?: number;
 
-  @ApiProperty({ example: 2000, description: 'Wastage allowance in milligrams' })
-  @IsNumber() @Min(0)
-  wastageAllowanceMg: number;
+  @ApiPropertyOptional({ example: 2000, description: 'Wastage allowance in milligrams' })
+  @IsOptional() @IsNumber() @Min(0)
+  wastageAllowanceMg?: number;
 
   @ApiProperty({ example: 'karagar_id_here' })
   @IsString() @IsNotEmpty()

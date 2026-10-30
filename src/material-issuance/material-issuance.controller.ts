@@ -21,6 +21,16 @@ export class MaterialIssuanceController {
     return ApiResponse.ok(await this.service.findAll(query));
   }
 
+  @Get('my')
+  @Roles(UserRole.KARAGAR)
+  @ApiOperation({ summary: 'List issuances for the logged-in karagar' })
+  async findMine(
+    @Query() query: IssuanceQueryDto,
+    @CurrentUser() user: { id: string },
+  ) {
+    return ApiResponse.ok(await this.service.findMine(user.id, query));
+  }
+
   @Post()
   @Roles(UserRole.MANAGER, UserRole.ADMIN)
   @ApiOperation({ summary: 'Issue gold to karagar for a job' })

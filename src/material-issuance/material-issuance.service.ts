@@ -31,6 +31,12 @@ export class MaterialIssuanceService {
     return { items: items.map(this.toGrams), total, page, limit, totalPages: Math.ceil(total / limit) };
   }
 
+  async findMine(userId: string, query: IssuanceQueryDto) {
+    const karagar = await this.karagarModel.findOne({ userId: new Types.ObjectId(userId) }).lean();
+    if (!karagar) return { items: [], total: 0, page: 1, limit: 100, totalPages: 0 };
+    return this.findAll({ ...query, karagarId: (karagar._id as Types.ObjectId).toString() });
+  }
+
   async create(dto: CreateIssuanceDto, userId: string) {
     const job = await this.jobModel.findById(dto.jobId);
     if (!job) throw new NotFoundException('Job not found.');
@@ -38,7 +44,8 @@ export class MaterialIssuanceService {
     const karagar = await this.karagarModel.findById(job.karagarId).lean();
     if (!karagar) throw new NotFoundException('Karagar not found.');
 
-    const pureGoldEquivalentMg = Math.round(dto.physicalWeightMg * dto.purity);
+    const purity = dto.purity ?? 1.0;
+    const pureGoldEquivalentMg = Math.round(dto.physicalWeightMg * purity);
 
     const issuance = await this.issuanceModel.create({
       transactionId: `ISS-${uuidv4().slice(0, 8).toUpperCase()}`,
@@ -46,7 +53,7 @@ export class MaterialIssuanceService {
       karagarId: job.karagarId,
       karagarName: karagar.name,
       physicalWeightMg: dto.physicalWeightMg,
-      purity: dto.purity,
+      purity,
       pureGoldEquivalentMg,
       meltingGroup: job.meltingGroup,
       authorizedBy: new Types.ObjectId(userId),

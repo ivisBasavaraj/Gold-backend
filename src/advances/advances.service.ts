@@ -49,11 +49,14 @@ export class AdvancesService {
     if (!karagar) throw new NotFoundException('Karagar not found.');
     if (!karagar.isActive) throw new BadRequestException('Cannot disburse to inactive karagar.');
 
+    const amountPaise = dto.amountPaise ?? Math.round((dto.amountRupees ?? 0) * 100);
+    if (amountPaise < 1) throw new BadRequestException('Amount must be greater than zero.');
+
     const advance = await this.advanceModel.create({
       transactionId: `ADV-${uuidv4().slice(0, 8).toUpperCase()}`,
       karagarId: new Types.ObjectId(dto.karagarId),
       karagarName: karagar.name,
-      amountPaise: dto.amountPaise,
+      amountPaise,
       paymentMode: dto.paymentMode,
       purpose: dto.purpose,
       referenceNumber: dto.referenceNumber,

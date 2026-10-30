@@ -55,16 +55,15 @@ export class PayrollService {
     }
 
     const jobs = await this.jobModel.find(jobFilter).lean();
-    if (!jobs.length) throw new BadRequestException('No completed jobs found for this period.');
 
-    // Calculate labor
+    // Calculate labor (0 if no completed jobs — manager can still record a manual payment)
     let grossLaborPaise = 0;
     let actualWastageMg = 0;
     let allowedWastageMg = 0;
 
     for (const job of jobs) {
-      grossLaborPaise += job.laborRatePerPiecePaise * job.pieceCount;
-      allowedWastageMg += job.wastageAllowanceMg;
+      grossLaborPaise += (job.laborRatePerPiecePaise ?? 0) * (job.pieceCount ?? 1);
+      allowedWastageMg += job.wastageAllowanceMg ?? 0;
       const jobWastage = job.totalIssuedMg - job.totalReturnedMg - job.requiredWeightMg;
       if (jobWastage > 0) actualWastageMg += jobWastage;
     }
@@ -140,13 +139,20 @@ export class PayrollService {
       throw new BadRequestException('Payroll must be approved before recording payment.');
     }
 
+    const amountPaise = dto.amountPaise ?? Math.round((dto.amountRupees ?? 0) * 100);
+    if (amountPaise < 1) throw new BadRequestException('Payment amount must be greater than zero.');
+
+    // Only enforce remaining-balance check when netPayablePaise > 0
     const remaining = payroll.netPayablePaise - payroll.paidPaise;
-    if (dto.amountPaise > remaining) {
+    if (payroll.netPayablePaise > 0 && amountPaise > remaining) {
       throw new BadRequestException(`Payment exceeds remaining balance of ₹${(remaining / 100).toFixed(2)}.`);
     }
 
-    payroll.paidPaise += dto.amountPaise;
-    payroll.status = payroll.paidPaise >= payroll.netPayablePaise ? PayrollStatus.PAID : PayrollStatus.PARTIALLY_PAID;
+    payroll.paidPaise += amountPaise;
+    // Mark paid when paidPaise >= netPayablePaise, or when netPayablePaise is 0 (manual payment)
+    payroll.status = (payroll.netPayablePaise === 0 || payroll.paidPaise >= payroll.netPayablePaise)
+      ? PayrollStatus.PAID
+      : PayrollStatus.PARTIALLY_PAID;
 
     // Deduct from advances if advance was included
     if (payroll.advanceDeductionPaise > 0) {
