@@ -4,6 +4,27 @@ const Job = require('../models/Job');
 const Karagar = require('../models/Karagar');
 const { auth, requireRole } = require('../middleware/auth');
 
+// GET /payroll/my — karagar sees only their own payroll records
+router.get('/my', auth, async (req, res) => {
+  try {
+    if (!req.user.karagarId) {
+      return res.status(403).json({ message: 'No karagar profile linked to this account' });
+    }
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const skip = (page - 1) * limit;
+    const filter = { karagarId: req.user.karagarId };
+    if (req.query.status) filter.status = req.query.status;
+    const [items, total] = await Promise.all([
+      Payroll.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit),
+      Payroll.countDocuments(filter),
+    ]);
+    res.json({ data: { items, total, page, limit } });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
 // GET /payroll
 router.get('/', auth, async (req, res) => {
   try {
