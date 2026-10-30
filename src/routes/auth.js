@@ -62,6 +62,7 @@ router.get('/me', auth, (req, res) => {
     role: u.role,
     employeeCode: u.employeeCode,
     avatarUrl: u.avatarUrl,
+    karagarId: u.karagarId,
   });
 });
 

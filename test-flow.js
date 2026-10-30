@@ -23,7 +23,7 @@
  *  18. Verify issuance karagarId matches job's karagar (server-side derivation)
  */
 
-const BASE = 'http://localhost:3000/api/v1';
+const BASE = 'https://gold-backend-ym0j.onrender.com/api/v1';
 
 let passed = 0;
 let failed = 0;
@@ -197,7 +197,7 @@ async function run() {
     token: mgrToken,
     body: {
       jobId: job1Id,
-      receiptType: 'finishedProduct',
+      receiptType: 'finished',
       physicalWeightMg: 48000,
       purity: 0.916,
       notes: 'Test receipt K1',
