@@ -6,6 +6,22 @@ const Karagar = require('../models/Karagar');
 const { Treasury, TreasuryTx } = require('../models/Treasury');
 const { auth } = require('../middleware/auth');
 
+// GET /material-issuance/my — karagar sees only their own records (karagarId from token)
+router.get('/my', auth, async (req, res) => {
+  try {
+    if (!req.user.karagarId) {
+      return res.status(403).json({ message: 'No karagar profile linked to this account' });
+    }
+    const filter = { karagarId: req.user.karagarId };
+    if (req.query.jobId) filter.jobId = req.query.jobId;
+    const limit = parseInt(req.query.limit) || 100;
+    const items = await MaterialIssuance.find(filter).sort({ createdAt: -1 }).limit(limit);
+    res.json({ data: { items, total: items.length } });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
 // GET /material-issuance
 router.get('/', auth, async (req, res) => {
   try {

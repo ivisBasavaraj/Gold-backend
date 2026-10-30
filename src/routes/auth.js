@@ -1,6 +1,7 @@
 const router = require('express').Router();
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const Karagar = require('../models/Karagar');
 const { auth } = require('../middleware/auth');
 
 const sign = (id) => jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES_IN || '7d' });
@@ -69,15 +70,28 @@ router.post('/logout', auth, (req, res) => {
   res.json({ message: 'Logged out' });
 });
 
-// POST /auth/seed — create demo users if none exist
+// POST /auth/seed — create demo users and linked karagar profiles
 router.post('/seed', async (req, res) => {
   try {
     await User.deleteMany({});
+    await Karagar.deleteMany({ employeeCode: { $in: ['GC-001', 'GC-002'] } });
+
+    // Create karagar profiles first
+    const k1 = await Karagar.create({
+      name: 'Raju Kumar', employeeCode: 'GC-001',
+      meltingGroup: 'A', specialization: 'Necklace', phone: '9876543210',
+    });
+    const k2 = await Karagar.create({
+      name: 'Suresh Patil', employeeCode: 'GC-002',
+      meltingGroup: 'B', specialization: 'Bangles', phone: '9876543211',
+    });
+
+    // Create users — karagar users carry karagarId linking them to their profile
     const users = [
       { name: 'Workshop Manager', username: 'manager', password: 'demo1234', role: 'manager', employeeCode: 'MGR-001' },
       { name: 'Admin User',       username: 'admin',   password: 'demo1234', role: 'admin',   employeeCode: 'ADM-001' },
-      { name: 'Raju Kumar',       username: 'karagar1',password: 'demo1234', role: 'karagar', employeeCode: 'GC-001'  },
-      { name: 'Suresh Patil',     username: 'karagar2',password: 'demo1234', role: 'karagar', employeeCode: 'GC-002'  },
+      { name: 'Raju Kumar',       username: 'karagar1',password: 'demo1234', role: 'karagar', employeeCode: 'GC-001', karagarId: k1._id },
+      { name: 'Suresh Patil',     username: 'karagar2',password: 'demo1234', role: 'karagar', employeeCode: 'GC-002', karagarId: k2._id },
     ];
     for (const u of users) {
       await new User(u).save();
