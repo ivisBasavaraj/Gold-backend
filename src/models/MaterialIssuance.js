@@ -11,6 +11,10 @@ const issuanceSchema = new mongoose.Schema({
   meltingGroup: { type: String, required: true },
   reversed: { type: Boolean, default: false },
   notes: String,
+  // OCR fields
+  managerOcrGrams: { type: Number },          // reading from manager's scale scan
+  ocrConfidence: { type: Number },            // YOLO confidence score
+  ocrImageUrl: { type: String },              // optional stored image URL
 }, { timestamps: true });
 
 module.exports = mongoose.model('MaterialIssuance', issuanceSchema);

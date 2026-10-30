@@ -84,6 +84,41 @@ router.post('/', auth, requireRole('admin', 'manager'), async (req, res) => {
   }
 });
 
+// POST /jobs/:id/verify-ocr — karagar scans scale to verify weight matches manager's reading
+router.post('/:id/verify-ocr', auth, async (req, res) => {
+  try {
+    const job = await Job.findById(req.params.id);
+    if (!job) return res.status(404).json({ message: 'Job not found' });
+
+    const karagarOcrGrams = Number(req.body.karagarOcrGrams);
+    if (!karagarOcrGrams || karagarOcrGrams <= 0)
+      return res.status(400).json({ message: 'karagarOcrGrams required' });
+
+    // If manager did not scan, skip verification and allow start
+    if (job.managerOcrGrams == null) {
+      await Job.findByIdAndUpdate(job._id, { karagarOcrGrams, ocrVerified: true });
+      return res.json({ data: { verified: true, message: 'No manager OCR on record — verification skipped' } });
+    }
+
+    const tolerance = job.ocrToleranceGrams ?? 0.5;
+    const diff = Math.abs(karagarOcrGrams - job.managerOcrGrams);
+    const verified = diff <= tolerance;
+
+    await Job.findByIdAndUpdate(job._id, { karagarOcrGrams, ocrVerified: verified });
+
+    if (!verified) {
+      return res.status(409).json({
+        message: `Weight mismatch: manager read ${job.managerOcrGrams}g, you read ${karagarOcrGrams}g (diff ${diff.toFixed(3)}g, tolerance ${tolerance}g)`,
+        data: { verified: false, managerOcrGrams: job.managerOcrGrams, karagarOcrGrams, diff, tolerance },
+      });
+    }
+
+    res.json({ data: { verified: true, managerOcrGrams: job.managerOcrGrams, karagarOcrGrams, diff } });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
 // PATCH /jobs/:id
 router.patch('/:id', auth, async (req, res) => {
   try {

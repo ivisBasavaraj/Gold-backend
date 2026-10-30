@@ -57,13 +57,20 @@ router.post('/', auth, async (req, res) => {
       purity,
       meltingGroup: job.meltingGroup,
       notes: req.body.notes,
+      managerOcrGrams: req.body.managerOcrGrams ?? null,
+      ocrConfidence: req.body.ocrConfidence ?? null,
     });
 
-    // Update job issued weight
-    await Job.findByIdAndUpdate(job._id, {
+    // Store manager OCR reading on the job for karagar verification
+    const jobUpdate = {
       $inc: { issuedWeightGrams: physicalGrams },
       status: 'inProgress',
-    });
+    };
+    if (req.body.managerOcrGrams != null) {
+      jobUpdate.managerOcrGrams = req.body.managerOcrGrams;
+      jobUpdate.ocrVerified = false;
+    }
+    await Job.findByIdAndUpdate(job._id, jobUpdate);
 
     // Update karagar totals
     await Karagar.findByIdAndUpdate(job.karagarId, {

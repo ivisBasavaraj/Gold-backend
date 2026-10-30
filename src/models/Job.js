@@ -21,6 +21,11 @@ const jobSchema = new mongoose.Schema({
   issuedWeightGrams: { type: Number, default: 0 },
   returnedWeightGrams: { type: Number, default: 0 },
   notes: String,
+  // OCR verification
+  managerOcrGrams: { type: Number },          // OCR reading at time of issuance
+  karagarOcrGrams: { type: Number },          // OCR reading when karagar starts job
+  ocrVerified: { type: Boolean, default: false }, // true when both readings match
+  ocrToleranceGrams: { type: Number, default: 0.5 }, // allowed mismatch
 }, { timestamps: true });
 
 module.exports = mongoose.model('Job', jobSchema);

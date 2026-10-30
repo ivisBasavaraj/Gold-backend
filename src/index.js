@@ -22,6 +22,7 @@ app.use('/api/v1/jobs',              require('./routes/jobs'));
 app.use('/api/v1/treasury',          require('./routes/treasury'));
 app.use('/api/v1/material-issuance', require('./routes/material-issuance'));
 app.use('/api/v1/material-receipts', require('./routes/material-receipts'));
+app.use('/api/v1/ocr',               require('./routes/ocr'));
 app.use('/api/v1/advances',          require('./routes/advances'));
 app.use('/api/v1/payroll',           require('./routes/payroll'));
 app.use('/api/v1/dashboard',         require('./routes/dashboard'));
