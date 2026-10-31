@@ -115,10 +115,13 @@ export class PayrollService {
     payroll.approvedIncentivePaise = incentive;
     payroll.approvedPenaltyPaise = penalty;
     payroll.authorizedAdjustmentPaise = adjustment;
-    payroll.netPayablePaise = Math.max(
-      0,
-      payroll.grossLaborPaise + incentive - penalty + adjustment - payroll.advanceDeductionPaise,
-    );
+    // Only recalculate netPayablePaise if grossLaborPaise > 0; otherwise keep 0 for manual payment
+    if (payroll.grossLaborPaise > 0) {
+      payroll.netPayablePaise = Math.max(
+        0,
+        payroll.grossLaborPaise + incentive - penalty + adjustment - payroll.advanceDeductionPaise,
+      );
+    }
     payroll.status = PayrollStatus.APPROVED;
     payroll.approvedBy = new Types.ObjectId(userId);
     payroll.approvedAt = new Date();
@@ -142,15 +145,19 @@ export class PayrollService {
     const amountPaise = dto.amountPaise ?? Math.round((dto.amountRupees ?? 0) * 100);
     if (amountPaise < 1) throw new BadRequestException('Payment amount must be greater than zero.');
 
-    // Only enforce remaining-balance check when netPayablePaise > 0
+    // If netPayablePaise is 0 (manual salary — no labor rate jobs), set it to the payment amount
+    if (payroll.netPayablePaise === 0) {
+      payroll.netPayablePaise = amountPaise;
+      payroll.grossLaborPaise = amountPaise;
+    }
+
     const remaining = payroll.netPayablePaise - payroll.paidPaise;
-    if (payroll.netPayablePaise > 0 && amountPaise > remaining) {
+    if (amountPaise > remaining) {
       throw new BadRequestException(`Payment exceeds remaining balance of ₹${(remaining / 100).toFixed(2)}.`);
     }
 
     payroll.paidPaise += amountPaise;
-    // Mark paid when paidPaise >= netPayablePaise, or when netPayablePaise is 0 (manual payment)
-    payroll.status = (payroll.netPayablePaise === 0 || payroll.paidPaise >= payroll.netPayablePaise)
+    payroll.status = payroll.paidPaise >= payroll.netPayablePaise
       ? PayrollStatus.PAID
       : PayrollStatus.PARTIALLY_PAID;
 
