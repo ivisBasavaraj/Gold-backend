@@ -98,11 +98,11 @@ export class MaterialReceiptsService {
     return this.toGrams(receipt.toObject());
   }
 
-  private toGrams(doc: Record<string, unknown>) {
+  private toGrams = (doc: Record<string, unknown>) => {
     return {
       ...doc,
       physicalWeightGrams: (doc['physicalWeightMg'] as number) / 1000,
       pureGoldEquivalentGrams: (doc['pureGoldEquivalentMg'] as number) / 1000,
     };
-  }
+  };
 }

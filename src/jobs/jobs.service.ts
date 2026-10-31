@@ -124,7 +124,7 @@ export class JobsService {
     return this.toGrams(job.toObject());
   }
 
-  private toGrams(job: Record<string, unknown>) {
+  private toGrams = (job: Record<string, unknown>) => {
     return {
       ...job,
       requiredWeightGrams: (job['requiredWeightMg'] as number) / 1000,
@@ -133,7 +133,7 @@ export class JobsService {
       returnedWeightGrams: (job['totalReturnedMg'] as number) / 1000,
       laborRatePerPiece: (job['laborRatePerPiecePaise'] as number) / 100,
     };
-  }
+  };
 
   private async generateJobNumber(): Promise<string> {
     const count = await this.jobModel.countDocuments();

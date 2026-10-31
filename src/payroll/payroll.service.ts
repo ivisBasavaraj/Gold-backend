@@ -187,7 +187,7 @@ export class PayrollService {
     }
   }
 
-  private toRupees(doc: Record<string, unknown>) {
+  private toRupees = (doc: Record<string, unknown>) => {
     const fields = ['grossLaborPaise', 'approvedIncentivePaise', 'approvedPenaltyPaise',
       'advanceDeductionPaise', 'authorizedAdjustmentPaise', 'netPayablePaise', 'paidPaise'];
     const result: Record<string, unknown> = { ...doc };
@@ -195,5 +195,5 @@ export class PayrollService {
       if (f in doc) result[f.replace('Paise', 'Rupees')] = (doc[f] as number) / 100;
     }
     return result;
-  }
+  };
 }
