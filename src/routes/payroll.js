@@ -27,6 +27,65 @@ function recalcNet(payroll) {
   }
 }
 
+// ── POST /payroll/generate — must be registered before /:id routes ───────────
+// Body: { karagarId, periodStart, periodEnd }
+router.post('/generate', auth, requireRole('admin', 'manager'), async (req, res) => {
+  try {
+    const { karagarId, periodStart, periodEnd } = req.body;
+    if (!karagarId || !periodStart || !periodEnd)
+      return res.status(400).json({ message: 'karagarId, periodStart, periodEnd are required' });
+
+    const karagar = await Karagar.findById(karagarId);
+    if (!karagar) return res.status(404).json({ message: 'Karagar not found' });
+
+    const start = new Date(periodStart);
+    const end   = new Date(periodEnd);
+    end.setHours(23, 59, 59, 999);
+
+    const kId = new mongoose.Types.ObjectId(karagarId);
+
+    const completedJobs = await Job.find({
+      karagarId: kId,
+      status: 'completed',
+      updatedAt: { $gte: start, $lte: end },
+    });
+    const jobsDone = completedJobs.length;
+
+    const [issuances, receipts] = await Promise.all([
+      MaterialIssuance.find({ karagarId: kId, reversed: { $ne: true }, createdAt: { $gte: start, $lte: end } }),
+      MaterialReceipt.find({  karagarId: kId, reversed: { $ne: true }, createdAt: { $gte: start, $lte: end } }),
+    ]);
+
+    const totalIssuedGrams   = issuances.reduce((s, i) => s + (i.pureGoldEquivalentGrams || 0), 0);
+    const totalReturnedGrams = receipts.reduce((s, r)  => s + (r.pureGoldEquivalentGrams || 0), 0);
+    const actualWastageGrams = Math.max(0, totalIssuedGrams - totalReturnedGrams);
+    const allowedWastageGrams = totalIssuedGrams * 0.01;
+    const wastageStatus = actualWastageGrams <= allowedWastageGrams ? 'withinAllowance' : 'excess';
+
+    const payroll = await Payroll.create({
+      karagarId: karagar._id,
+      karagarName: karagar.name,
+      periodStart: start,
+      periodEnd:   end,
+      status:      'draft',
+      jobsDone,
+      grossLaborRupees:        0,
+      approvedIncentiveRupees: 0,
+      approvedPenaltyRupees:   0,
+      advanceDeductionRupees:  0,
+      netPayableRupees:        0,
+      paidRupees:              0,
+      actualWastageGrams,
+      allowedWastageGrams,
+      wastageStatus,
+    });
+
+    res.status(201).json({ data: payroll });
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+});
+
 // ── GET /payroll/my  (karagar — own records) ──────────────────────────────────
 router.get('/my', auth, async (req, res) => {
   try {
@@ -59,82 +118,6 @@ router.get('/:id', auth, async (req, res) => {
     res.json({ data: payroll });
   } catch (err) {
     res.status(500).json({ message: err.message });
-  }
-});
-
-// ── POST /payroll/generate ────────────────────────────────────────────────────
-// Body: { karagarId, periodStart, periodEnd }
-// Computes jobsDone, grossLaborRupees, wastage from completed jobs in the period.
-// For simplicity grossLaborRupees = 0 at generation time (manager sets amount at approve).
-router.post('/generate', auth, requireRole('admin', 'manager'), async (req, res) => {
-  try {
-    const { karagarId, periodStart, periodEnd } = req.body;
-    if (!karagarId || !periodStart || !periodEnd)
-      return res.status(400).json({ message: 'karagarId, periodStart, periodEnd are required' });
-
-    const karagar = await Karagar.findById(karagarId);
-    if (!karagar) return res.status(404).json({ message: 'Karagar not found' });
-
-    const start = new Date(periodStart);
-    const end   = new Date(periodEnd);
-    // set end to end-of-day so the full last day is included
-    end.setHours(23, 59, 59, 999);
-
-    const kId = new mongoose.Types.ObjectId(karagarId);
-
-    // Count completed jobs in period
-    const completedJobs = await Job.find({
-      karagarId: kId,
-      status: 'completed',
-      updatedAt: { $gte: start, $lte: end },
-    });
-    const jobsDone = completedJobs.length;
-
-    // Compute actual vs allowed wastage from material transactions in period
-    const [issuances, receipts] = await Promise.all([
-      MaterialIssuance.find({
-        karagarId: kId,
-        reversed: { $ne: true },
-        createdAt: { $gte: start, $lte: end },
-      }),
-      MaterialReceipt.find({
-        karagarId: kId,
-        reversed: { $ne: true },
-        createdAt: { $gte: start, $lte: end },
-      }),
-    ]);
-
-    const totalIssuedGrams   = issuances.reduce((s, i) => s + (i.pureGoldEquivalentGrams || 0), 0);
-    const totalReturnedGrams = receipts.reduce((s, r)  => s + (r.pureGoldEquivalentGrams || 0), 0);
-    const actualWastageGrams = Math.max(0, totalIssuedGrams - totalReturnedGrams);
-
-    // Allowed wastage: fixed 1 % of issued gold (adjust to your business rule)
-    const allowedWastageGrams = totalIssuedGrams * 0.01;
-    const wastageStatus = actualWastageGrams <= allowedWastageGrams
-      ? 'withinAllowance'
-      : 'excess';
-
-    const payroll = await Payroll.create({
-      karagarId: karagar._id,
-      karagarName: karagar.name,
-      periodStart: start,
-      periodEnd:   end,
-      status:      'draft',
-      jobsDone,
-      grossLaborRupees:        0,
-      approvedIncentiveRupees: 0,
-      approvedPenaltyRupees:   0,
-      advanceDeductionRupees:  0,
-      netPayableRupees:        0,
-      paidRupees:              0,
-      actualWastageGrams,
-      allowedWastageGrams,
-      wastageStatus,
-    });
-
-    res.status(201).json({ data: payroll });
-  } catch (err) {
-    res.status(400).json({ message: err.message });
   }
 });
 
