@@ -86,7 +86,73 @@ router.post('/generate', auth, requireRole('admin', 'manager'), async (req, res)
   }
 });
 
-// ── GET /payroll/my  (karagar — own records) ──────────────────────────────────
+// POST /payroll
+router.post('/', auth, requireRole('admin', 'manager'), async (req, res) => {
+  try {
+    const { karagarId, periodStart, periodEnd, paidRupees, notes } = req.body;
+    if (!karagarId || !periodStart || !periodEnd)
+      return res.status(400).json({ message: 'karagarId, periodStart, periodEnd required' });
+
+    const karagar = await Karagar.findById(karagarId);
+    if (!karagar) return res.status(404).json({ message: 'Karagar not found' });
+
+    const paid = Number(paidRupees) || 0;
+
+    // Count completed jobs in the period for display purposes
+    const start = new Date(periodStart);
+    const end   = new Date(periodEnd);
+    end.setHours(23, 59, 59, 999);
+    const kId = new mongoose.Types.ObjectId(karagarId);
+    const completedJobs = await Job.find({
+      karagarId: kId, status: 'completed',
+      updatedAt: { $gte: start, $lte: end },
+    });
+
+    // Auto-deduct outstanding advances
+    const pendingAdvances = await Advance.find({ karagarId: kId, fullyRepaid: false });
+    const advanceDeduction = pendingAdvances.reduce((s, a) => s + (a.amountRupees - a.repaidRupees), 0);
+
+    const netPayable = paid; // manager decides the amount; treat paidRupees as net
+    const status = paid > 0 ? 'paid' : 'draft';
+
+    const payroll = await Payroll.create({
+      karagarId: karagar._id,
+      karagarName: karagar.name,
+      periodStart: new Date(periodStart),
+      periodEnd:   end,
+      status,
+      jobsDone: completedJobs.length,
+      grossLaborRupees:        paid,
+      approvedIncentiveRupees: 0,
+      approvedPenaltyRupees:   0,
+      advanceDeductionRupees:  advanceDeduction,
+      netPayableRupees:        paid,
+      paidRupees:              paid,
+      actualWastageGrams:      0,
+      allowedWastageGrams:     0,
+      wastageStatus:           'withinAllowance',
+      notes,
+    });
+
+    // Mark advances as settled if payment covers them
+    if (paid > 0 && advanceDeduction > 0) {
+      let toSettle = advanceDeduction;
+      for (const adv of pendingAdvances.sort((a, b) => a.createdAt - b.createdAt)) {
+        if (toSettle <= 0) break;
+        const outstanding = adv.amountRupees - adv.repaidRupees;
+        const settling    = Math.min(outstanding, toSettle);
+        adv.repaidRupees += settling;
+        adv.fullyRepaid   = adv.repaidRupees >= adv.amountRupees;
+        await adv.save();
+        toSettle -= settling;
+      }
+    }
+
+    res.status(201).json({ data: payroll });
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+});
 router.get('/my', auth, async (req, res) => {
   try {
     if (!req.user.karagarId)
