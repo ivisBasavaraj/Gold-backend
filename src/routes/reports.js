@@ -3,41 +3,64 @@ const Job = require('../models/Job');
 const Karagar = require('../models/Karagar');
 const Advance = require('../models/Advance');
 const Payroll = require('../models/Payroll');
+const MaterialIssuance = require('../models/MaterialIssuance');
+const MaterialReceipt = require('../models/MaterialReceipt');
 const { auth } = require('../middleware/auth');
 
 // GET /reports/dashboard
 router.get('/dashboard', auth, async (req, res) => {
   try {
-    const [jobs, karagars, advances, payrolls] = await Promise.all([
+    const [jobs, activeKaragars, advances, payrolls, issuances, receipts] = await Promise.all([
       Job.find(),
       Karagar.countDocuments({ isActive: true }),
-      Advance.find({ fullyRepaid: false }),
-      Payroll.countDocuments({ status: { $in: ['draft', 'underReview', 'approved'] } }),
+      Advance.find(),
+      Payroll.find(),
+      MaterialIssuance.find({ reversed: { $ne: true } }),
+      MaterialReceipt.find({ reversed: { $ne: true } }),
     ]);
 
+    // Jobs by status
     const byStatus = jobs.reduce((acc, j) => {
       acc[j.status] = (acc[j.status] || 0) + 1;
       return acc;
     }, {});
 
-    const totalIssuedGrams = jobs.reduce((s, j) => s + j.issuedWeightGrams, 0);
-    const totalReturnedGrams = jobs.reduce((s, j) => s + j.returnedWeightGrams, 0);
-    const totalOutstanding = advances.reduce(
-      (s, a) => s + (a.amountRupees - a.repaidRupees),
-      0
+    // Gold — use MaterialIssuance/Receipt for accurate totals
+    const totalIssuedGrams   = issuances.reduce((s, i) => s + (i.physicalWeightGrams || 0), 0);
+    const totalReturnedGrams = receipts.reduce((s, r)  => s + (r.physicalWeightGrams || 0), 0);
+
+    // Advances — total disbursed vs outstanding
+    const totalAdvancePaidRupees = advances.reduce((s, a) => s + (a.amountRupees || 0), 0);
+    const totalAdvanceOutstandingRupees = advances.reduce(
+      (s, a) => s + ((a.amountRupees || 0) - (a.repaidRupees || 0)), 0
     );
+
+    // Payroll — total paid salary
+    const totalSalaryPaidRupees = payrolls.reduce((s, p) => s + (p.paidRupees || 0), 0);
+    const totalSalaryNetRupees  = payrolls.reduce((s, p) => s + (p.netPayableRupees || 0), 0);
+    const pendingPayrollCount   = payrolls.filter(p =>
+      ['draft', 'underReview', 'approved', 'partiallyPaid'].includes(p.status)
+    ).length;
 
     res.json({
       data: {
-        activeKaragars: karagars,
-        pendingPayrolls: payrolls,
+        activeKaragars,
+        pendingPayrolls: pendingPayrollCount,
         jobs: { total: jobs.length, byStatus },
         gold: {
           totalIssuedGrams,
           totalReturnedGrams,
           inCirculationGrams: totalIssuedGrams - totalReturnedGrams,
         },
-        advances: { totalOutstandingRupees: totalOutstanding },
+        advances: {
+          totalOutstandingRupees: totalAdvanceOutstandingRupees,
+          totalPaidRupees: totalAdvancePaidRupees,
+        },
+        payroll: {
+          totalPaidRupees: totalSalaryPaidRupees,
+          totalNetPayableRupees: totalSalaryNetRupees,
+          pendingCount: pendingPayrollCount,
+        },
       },
     });
   } catch (err) {
@@ -61,8 +84,6 @@ router.get('/melting-groups', auth, async (req, res) => {
           completedJobs: {
             $sum: { $cond: [{ $eq: ['$status', 'completed'] }, 1, 0] },
           },
-          totalIssuedGrams: { $sum: '$issuedWeightGrams' },
-          totalReturnedGrams: { $sum: '$returnedWeightGrams' },
         },
       },
       { $sort: { _id: 1 } },
