@@ -1,7 +1,7 @@
-import { IsString, IsNotEmpty, IsNumber, IsOptional, IsDateString, IsArray, Min } from 'class-validator';
+import { IsString, IsNotEmpty, IsNumber, IsOptional, IsDateString, Min } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-export class GeneratePayrollDto {
+export class CreatePayrollDto {
   @ApiProperty()
   @IsString() @IsNotEmpty()
   karagarId: string;
@@ -14,37 +14,19 @@ export class GeneratePayrollDto {
   @IsDateString()
   periodEnd: string;
 
-  @ApiPropertyOptional({ description: 'Specific job IDs to include; omit to auto-include all completed jobs in period' })
-  @IsOptional() @IsArray() @IsString({ each: true })
-  jobIds?: string[];
-}
-
-export class ApprovePayrollDto {
-  @ApiPropertyOptional({ description: 'Approved incentive in paise' })
-  @IsOptional() @IsNumber() @Min(0)
-  approvedIncentivePaise?: number;
-
-  @ApiPropertyOptional({ description: 'Approved penalty in paise' })
-  @IsOptional() @IsNumber() @Min(0)
-  approvedPenaltyPaise?: number;
-
-  @ApiPropertyOptional({ description: 'Authorized adjustment in paise (positive = bonus, negative = deduction)' })
-  @IsOptional() @IsNumber()
-  authorizedAdjustmentPaise?: number;
+  @ApiProperty({ description: 'Amount paid in rupees' })
+  @IsNumber() @Min(0)
+  paidRupees: number;
 
   @ApiPropertyOptional()
   @IsOptional() @IsString()
   notes?: string;
 }
 
-export class RecordPaymentDto {
-  @ApiPropertyOptional({ description: 'Amount paid in paise (preferred)' })
-  @IsOptional() @IsNumber() @Min(1)
-  amountPaise?: number;
-
-  @ApiPropertyOptional({ description: 'Amount paid in rupees (converted to paise internally)' })
-  @IsOptional() @IsNumber() @Min(0.01)
-  amountRupees?: number;
+export class UpdatePayrollDto {
+  @ApiPropertyOptional()
+  @IsOptional() @IsNumber() @Min(0)
+  paidRupees?: number;
 
   @ApiPropertyOptional()
   @IsOptional() @IsString()
@@ -54,9 +36,6 @@ export class RecordPaymentDto {
 export class PayrollQueryDto {
   @ApiPropertyOptional() @IsOptional() @IsString()
   karagarId?: string;
-
-  @ApiPropertyOptional() @IsOptional() @IsString()
-  status?: string;
 
   @ApiPropertyOptional() @IsOptional() @IsString()
   page?: string;

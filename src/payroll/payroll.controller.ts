@@ -1,10 +1,9 @@
-import { Controller, Get, Post, Param, Body, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Param, Body, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { PayrollService } from './payroll.service';
-import { GeneratePayrollDto, ApprovePayrollDto, RecordPaymentDto, PayrollQueryDto } from './payroll.dto';
+import { CreatePayrollDto, UpdatePayrollDto, PayrollQueryDto } from './payroll.dto';
 import { JwtAuthGuard, RolesGuard } from '../common/guards/auth.guard';
 import { Roles, UserRole } from '../common/decorators/roles.decorator';
-import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { ApiResponse } from '../common/dto/api-response.dto';
 
 @ApiTags('Payroll')
@@ -23,37 +22,30 @@ export class PayrollController {
 
   @Get(':id')
   @Roles(UserRole.MANAGER, UserRole.ADMIN)
-  @ApiOperation({ summary: 'Get payroll details' })
+  @ApiOperation({ summary: 'Get payroll' })
   async findOne(@Param('id') id: string) {
     return ApiResponse.ok(await this.service.findOne(id));
   }
 
-  @Post('generate')
+  @Post()
   @Roles(UserRole.MANAGER, UserRole.ADMIN)
-  @ApiOperation({ summary: 'Generate payroll for a karagar' })
-  async generate(@Body() dto: GeneratePayrollDto, @CurrentUser() user: { id: string }) {
-    return ApiResponse.ok(await this.service.generate(dto, user.id), 'Payroll generated');
+  @ApiOperation({ summary: 'Create payroll record' })
+  async create(@Body() dto: CreatePayrollDto) {
+    return ApiResponse.ok(await this.service.create(dto), 'Payroll created');
   }
 
-  @Post(':id/approve')
+  @Patch(':id')
   @Roles(UserRole.MANAGER, UserRole.ADMIN)
-  @ApiOperation({ summary: 'Approve payroll with incentives/penalties' })
-  async approve(
-    @Param('id') id: string,
-    @Body() dto: ApprovePayrollDto,
-    @CurrentUser() user: { id: string },
-  ) {
-    return ApiResponse.ok(await this.service.approve(id, dto, user.id), 'Payroll approved');
+  @ApiOperation({ summary: 'Update payroll record' })
+  async update(@Param('id') id: string, @Body() dto: UpdatePayrollDto) {
+    return ApiResponse.ok(await this.service.update(id, dto), 'Payroll updated');
   }
 
-  @Post(':id/payment')
+  @Delete(':id')
   @Roles(UserRole.MANAGER, UserRole.ADMIN)
-  @ApiOperation({ summary: 'Record payroll payment' })
-  async recordPayment(
-    @Param('id') id: string,
-    @Body() dto: RecordPaymentDto,
-    @CurrentUser() user: { id: string },
-  ) {
-    return ApiResponse.ok(await this.service.recordPayment(id, dto, user.id), 'Payment recorded');
+  @ApiOperation({ summary: 'Delete payroll record' })
+  async remove(@Param('id') id: string) {
+    await this.service.remove(id);
+    return ApiResponse.ok(null, 'Deleted');
   }
 }

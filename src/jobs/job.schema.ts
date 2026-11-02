@@ -19,30 +19,9 @@ export class Job {
   @Prop({ required: true, trim: true })
   title: string;
 
-  @Prop({ trim: true, default: '' })
-  jewelryCategory: string;
-
-  @Prop({ min: 1, default: 1 })
-  pieceCount: number;
-
   // Stored in milligrams (integer) — display as grams (÷1000)
   @Prop({ required: true, min: 1 })
   requiredWeightMg: number;
-
-  // Purity as decimal e.g. 0.916 for 22K
-  @Prop({ min: 0, max: 1, default: 1.0 })
-  purity: number;
-
-  @Prop({ default: '' })
-  meltingGroup: string;
-
-  // Labor rate in paise (integer) — display as rupees (÷100)
-  @Prop({ min: 0, default: 0 })
-  laborRatePerPiecePaise: number;
-
-  // Wastage allowance in milligrams
-  @Prop({ min: 0, default: 0 })
-  wastageAllowanceMg: number;
 
   @Prop({ required: true })
   dueDate: Date;

@@ -76,12 +76,6 @@ export class JobsService {
       assignedBy: new Types.ObjectId(userId),
       dueDate: new Date(dto.dueDate),
       status: JobStatus.ASSIGNED,
-      jewelryCategory: dto.jewelryCategory ?? '',
-      pieceCount: dto.pieceCount ?? 1,
-      purity: dto.purity ?? 1.0,
-      meltingGroup: dto.meltingGroup ?? '',
-      laborRatePerPiecePaise: dto.laborRatePerPiecePaise ?? 0,
-      wastageAllowanceMg: dto.wastageAllowanceMg ?? 0,
     });
 
     return this.toGrams(job.toObject());
@@ -128,10 +122,8 @@ export class JobsService {
     return {
       ...job,
       requiredWeightGrams: (job['requiredWeightMg'] as number) / 1000,
-      wastageAllowanceGrams: (job['wastageAllowanceMg'] as number) / 1000,
       issuedWeightGrams: (job['totalIssuedMg'] as number) / 1000,
       returnedWeightGrams: (job['totalReturnedMg'] as number) / 1000,
-      laborRatePerPiece: (job['laborRatePerPiecePaise'] as number) / 100,
     };
   };
 

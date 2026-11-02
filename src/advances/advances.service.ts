@@ -92,11 +92,11 @@ export class AdvancesService {
     return this.toRupees(advance.toObject());
   }
 
-  private toRupees(doc: Record<string, unknown>) {
+  private toRupees = (doc: Record<string, unknown>) => {
     const result: Record<string, unknown> = { ...doc };
     if ('amountPaise' in doc) result['amountRupees'] = (doc['amountPaise'] as number) / 100;
     if ('repaidPaise' in doc) result['repaidRupees'] = (doc['repaidPaise'] as number) / 100;
     if ('outstandingPaise' in doc) result['outstandingRupees'] = (doc['outstandingPaise'] as number) / 100;
     return result;
-  }
+  };
 }

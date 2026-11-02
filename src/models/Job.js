@@ -3,13 +3,7 @@ const mongoose = require('mongoose');
 const jobSchema = new mongoose.Schema({
   jobNumber: { type: String, required: true, unique: true },
   title: { type: String, required: true },
-  jewelryCategory: { type: String, required: true },
-  pieceCount: { type: Number, required: true },
-  requiredWeightGrams: { type: Number, required: true },
-  purity: { type: Number, required: true },
-  meltingGroup: { type: String, required: true },
-  laborRatePerPiece: { type: Number, required: true },
-  wastageAllowanceGrams: { type: Number, required: true },
+  requiredWeightMg: { type: Number, required: true, min: 1 },
   dueDate: { type: Date, required: true },
   status: {
     type: String,

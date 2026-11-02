@@ -3,6 +3,12 @@ const Job = require('../models/Job');
 const Karagar = require('../models/Karagar');
 const { auth, requireRole } = require('../middleware/auth');
 
+function toGrams(job) {
+  const j = job.toObject ? job.toObject() : { ...job };
+  j.requiredWeightGrams = (j.requiredWeightMg ?? 0) / 1000;
+  return j;
+}
+
 // GET /jobs
 router.get('/', auth, async (req, res) => {
   try {
@@ -23,7 +29,7 @@ router.get('/', auth, async (req, res) => {
       Job.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit),
       Job.countDocuments(filter),
     ]);
-    res.json({ data: { items, total, page, limit } });
+    res.json({ data: { items: items.map(toGrams), total, page, limit } });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -34,7 +40,7 @@ router.get('/my-jobs', auth, async (req, res) => {
   try {
     const filter = req.user.karagarId ? { karagarId: req.user.karagarId } : {};
     const jobs = await Job.find(filter).sort({ createdAt: -1 });
-    res.json({ data: { items: jobs, total: jobs.length } });
+    res.json({ data: { items: jobs.map(toGrams), total: jobs.length } });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -45,7 +51,7 @@ router.get('/:id', auth, async (req, res) => {
   try {
     const job = await Job.findById(req.params.id);
     if (!job) return res.status(404).json({ message: 'Job not found' });
-    res.json({ data: job });
+    res.json({ data: toGrams(job) });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -64,13 +70,7 @@ router.post('/', auth, requireRole('admin', 'manager'), async (req, res) => {
     const job = await Job.create({
       jobNumber,
       title: req.body.title,
-      jewelryCategory: req.body.jewelryCategory,
-      pieceCount: req.body.pieceCount,
-      requiredWeightGrams: req.body.requiredWeightGrams,
-      purity: req.body.purity,
-      meltingGroup: req.body.meltingGroup,
-      laborRatePerPiece: req.body.laborRatePerPiece,
-      wastageAllowanceGrams: req.body.wastageAllowanceGrams,
+      requiredWeightMg: req.body.requiredWeightMg,
       dueDate: req.body.dueDate,
       karagarId: karagar._id,
       karagarName: karagar.name,
@@ -78,7 +78,7 @@ router.post('/', auth, requireRole('admin', 'manager'), async (req, res) => {
     });
 
     await Karagar.findByIdAndUpdate(karagar._id, { $inc: { activeJobCount: 1 } });
-    res.status(201).json({ data: job });
+    res.status(201).json({ data: toGrams(job) });
   } catch (err) {
     res.status(400).json({ message: err.message });
   }
@@ -134,7 +134,7 @@ router.patch('/:id', auth, async (req, res) => {
       await Karagar.findByIdAndUpdate(job.karagarId, { $inc: { activeJobCount: -1 } });
     }
 
-    res.json({ data: job });
+    res.json({ data: toGrams(job) });
   } catch (err) {
     res.status(400).json({ message: err.message });
   }
