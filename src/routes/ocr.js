@@ -11,6 +11,8 @@ const OCR_URL = process.env.OCR_SERVICE_URL || 'http://localhost:8001';
 // POST /ocr/read-scale
 // Accepts multipart/form-data with field "image"
 // Proxies to Python OCR service and returns { reading, valueGrams, confidence }
+// Always returns 503 (never 5xx crash) when the service is down so
+// the Flutter client can detect unavailability and fall back to manual entry.
 router.post('/read-scale', auth, upload.single('image'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ message: 'No image uploaded' });
@@ -28,20 +30,25 @@ router.post('/read-scale', auth, upload.single('image'), async (req, res) => {
 
     res.json({ data: response.data });
   } catch (err) {
+    // Forward OCR-level errors (e.g. 422 unprocessable)
     if (err.response) {
-      return res.status(err.response.status).json({ message: err.response.data?.detail || 'OCR failed' });
+      return res.status(err.response.status).json({
+        message: err.response.data?.detail || 'OCR processing failed',
+      });
     }
+    // Network/timeout errors → always 503 so Flutter knows to fall back
     res.status(503).json({ message: 'OCR service unavailable' });
   }
 });
 
-// GET /ocr/health
+// GET /ocr/health — safe, never throws
 router.get('/health', async (_req, res) => {
   try {
     const r = await axios.get(`${OCR_URL}/health`, { timeout: 3000 });
-    res.json({ data: r.data });
+    res.json({ data: { available: true, ...r.data } });
   } catch {
-    res.status(503).json({ message: 'OCR service unavailable' });
+    // Return 200 with available:false so the app can poll without triggering error handlers
+    res.json({ data: { available: false, message: 'OCR service unavailable' } });
   }
 });
 

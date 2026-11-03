@@ -1,0 +1,29 @@
+services:
+  # ── Node.js Express Backend ─────────────────────────────────────────────────
+  - type: web
+    name: goldcraft-backend
+    runtime: node
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MONGO_URI
+        sync: false          # set in Render dashboard
+      - key: JWT_SECRET
+        sync: false          # set in Render dashboard
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      - key: OCR_SERVICE_URL
+        value: https://goldcraft-ocr.onrender.com
+
+  # ── Python FastAPI OCR Service ───────────────────────────────────────────────
+  - type: web
+    name: goldcraft-ocr
+    runtime: python
+    rootDir: ocr_service
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: MODEL_PATH
+        value: best.pt
