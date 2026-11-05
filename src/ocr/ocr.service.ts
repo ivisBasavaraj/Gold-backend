@@ -13,7 +13,7 @@ export class OcrService {
 
   async checkHealth(): Promise<{ available: boolean; message?: string }> {
     try {
-      const r = await axios.get(`${this.ocrUrl}/health`, { timeout: 3000 });
+      const r = await axios.get(`${this.ocrUrl}/health`, { timeout: 10000 });
       return { available: true, ...r.data };
     } catch {
       return { available: false, message: 'OCR service unavailable' };
