@@ -29,7 +29,7 @@ export class OcrService {
 
     const response = await axios.post(`${this.ocrUrl}/read-scale`, form, {
       headers: form.getHeaders(),
-      timeout: 15000,
+      timeout: 60000,
     });
 
     return response.data;
