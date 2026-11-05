@@ -21,6 +21,9 @@ export class OcrService {
   }
 
   async readScale(file: Express.Multer.File) {
+    // Wake up the OCR service if it's sleeping (Render free tier)
+    try { await axios.get(`${this.ocrUrl}/health`, { timeout: 30000 }); } catch (_) {}
+
     const form = new FormData();
     form.append('file', file.buffer, {
       filename: file.originalname || 'scale.jpg',
