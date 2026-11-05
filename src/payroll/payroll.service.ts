@@ -40,7 +40,7 @@ export class PayrollService {
       karagarName: karagar.name,
       periodStart: new Date(dto.periodStart),
       periodEnd: new Date(dto.periodEnd),
-      paidPaise: Math.round((dto.paidRupees ?? 0) * 100),
+      paidPaise: Math.round(dto.paidRupees * 100),
       notes: dto.notes,
     });
     return this.toRupees(payroll.toObject());
@@ -62,6 +62,6 @@ export class PayrollService {
 
   private toRupees = (doc: Record<string, unknown>) => ({
     ...doc,
-    paidRupees: (doc['paidPaise'] as number) / 100,
+    paidRupees: ((doc['paidPaise'] as number) ?? 0) / 100,
   });
 }

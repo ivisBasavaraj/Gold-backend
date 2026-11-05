@@ -44,8 +44,6 @@ router.post('/', auth, async (req, res) => {
     const physicalGrams = req.body.physicalWeightMg
       ? req.body.physicalWeightMg / 1000
       : req.body.physicalWeightGrams;
-    const purity = req.body.purity || job.purity;
-    const pureGrams = physicalGrams * purity;
 
     const receipt = await MaterialReceipt.create({
       transactionId: `REC-${uuidv4().slice(0, 8).toUpperCase()}`,
@@ -54,9 +52,6 @@ router.post('/', auth, async (req, res) => {
       karagarName: job.karagarName,
       receiptType: req.body.receiptType || 'finished',
       physicalWeightGrams: physicalGrams,
-      pureGoldEquivalentGrams: pureGrams,
-      purity,
-      meltingGroup: job.meltingGroup,
       notes: req.body.notes,
     });
 

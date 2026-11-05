@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsNumber, IsOptional, Min, Max } from 'class-validator';
+import { IsString, IsNotEmpty, IsNumber, IsOptional, Min } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateIssuanceDto {
@@ -9,10 +9,6 @@ export class CreateIssuanceDto {
   @ApiProperty({ description: 'Physical weight in milligrams' })
   @IsNumber() @Min(1)
   physicalWeightMg: number;
-
-  @ApiPropertyOptional({ example: 1.0, description: 'Purity as decimal, defaults to 1.0' })
-  @IsOptional() @IsNumber() @Min(0) @Max(1)
-  purity?: number;
 
   @ApiPropertyOptional()
   @IsOptional() @IsString()

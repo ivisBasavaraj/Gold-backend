@@ -42,9 +42,6 @@ export class JobQueryDto {
   status?: string;
 
   @ApiPropertyOptional() @IsOptional() @IsString()
-  meltingGroup?: string;
-
-  @ApiPropertyOptional() @IsOptional() @IsString()
   page?: string;
 
   @ApiPropertyOptional() @IsOptional() @IsString()

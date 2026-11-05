@@ -7,9 +7,6 @@ const receiptSchema = new mongoose.Schema({
   karagarName: { type: String, required: true },
   receiptType: { type: String, enum: ['finished', 'scrap', 'wastage'], default: 'finished' },
   physicalWeightGrams: { type: Number, required: true },
-  pureGoldEquivalentGrams: { type: Number, required: true },
-  purity: { type: Number, required: true },
-  meltingGroup: { type: String, required: true },
   reversed: { type: Boolean, default: false },
   notes: String,
 }, { timestamps: true });

@@ -6,15 +6,11 @@ const issuanceSchema = new mongoose.Schema({
   karagarId: { type: mongoose.Schema.Types.ObjectId, ref: 'Karagar', required: true },
   karagarName: { type: String, required: true },
   physicalWeightGrams: { type: Number, required: true },
-  pureGoldEquivalentGrams: { type: Number, required: true },
-  purity: { type: Number, required: true },
-  meltingGroup: { type: String, required: true },
   reversed: { type: Boolean, default: false },
   notes: String,
-  // OCR fields
-  managerOcrGrams: { type: Number },          // reading from manager's scale scan
-  ocrConfidence: { type: Number },            // YOLO confidence score
-  ocrImageUrl: { type: String },              // optional stored image URL
+  managerOcrGrams: { type: Number },
+  ocrConfidence: { type: Number },
+  ocrImageUrl: { type: String },
 }, { timestamps: true });
 
 module.exports = mongoose.model('MaterialIssuance', issuanceSchema);

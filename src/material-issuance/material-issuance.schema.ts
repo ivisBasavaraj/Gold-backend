@@ -21,17 +21,6 @@ export class MaterialIssuance {
   @Prop({ required: true, min: 1 })
   physicalWeightMg: number;
 
-  // Purity as decimal e.g. 0.916
-  @Prop({ default: 1.0, min: 0, max: 1 })
-  purity: number;
-
-  // Pure gold equivalent = physicalWeightMg * purity
-  @Prop({ default: 0 })
-  pureGoldEquivalentMg: number;
-
-  @Prop({ default: '' })
-  meltingGroup: string;
-
   @Prop({ type: Types.ObjectId, ref: 'User', required: true })
   authorizedBy: Types.ObjectId;
 

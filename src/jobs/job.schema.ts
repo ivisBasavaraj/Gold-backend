@@ -54,4 +54,3 @@ JobSchema.index({ jobNumber: 1 });
 JobSchema.index({ karagarId: 1 });
 JobSchema.index({ status: 1 });
 JobSchema.index({ dueDate: 1 });
-JobSchema.index({ meltingGroup: 1 });

@@ -28,7 +28,7 @@ export class MaterialIssuanceService {
       this.issuanceModel.find(filter).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean(),
       this.issuanceModel.countDocuments(filter),
     ]);
-    return { items: items.map(this.toGrams), total, page, limit, totalPages: Math.ceil(total / limit) };
+    return { items, total, page, limit, totalPages: Math.ceil(total / limit) };
   }
 
   async findMine(userId: string, query: IssuanceQueryDto) {
@@ -44,18 +44,12 @@ export class MaterialIssuanceService {
     const karagar = await this.karagarModel.findById(job.karagarId).lean();
     if (!karagar) throw new NotFoundException('Karagar not found.');
 
-    const purity = dto.purity ?? 1.0;
-    const pureGoldEquivalentMg = Math.round(dto.physicalWeightMg * purity);
-
     const issuance = await this.issuanceModel.create({
       transactionId: `ISS-${uuidv4().slice(0, 8).toUpperCase()}`,
       jobId: new Types.ObjectId(dto.jobId),
       karagarId: job.karagarId,
       karagarName: karagar.name,
       physicalWeightMg: dto.physicalWeightMg,
-      purity,
-      pureGoldEquivalentMg,
-      meltingGroup: job.meltingGroup,
       authorizedBy: new Types.ObjectId(userId),
       scaleImageUrl: dto.scaleImageUrl,
       ocrExtractedWeightMg: dto.ocrExtractedWeightMg,
@@ -74,7 +68,7 @@ export class MaterialIssuanceService {
       new Types.ObjectId(userId),
     );
 
-    return this.toGrams(issuance.toObject());
+    return issuance.toObject();
   }
 
   async reverse(id: string, dto: ReverseIssuanceDto, userId: string) {
@@ -98,14 +92,6 @@ export class MaterialIssuanceService {
       new Types.ObjectId(userId),
     );
 
-    return this.toGrams(issuance.toObject());
+    return issuance.toObject();
   }
-
-  private toGrams = (doc: Record<string, unknown>) => {
-    return {
-      ...doc,
-      physicalWeightGrams: (doc['physicalWeightMg'] as number) / 1000,
-      pureGoldEquivalentGrams: (doc['pureGoldEquivalentMg'] as number) / 1000,
-    };
-  };
 }

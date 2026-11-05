@@ -44,8 +44,6 @@ router.post('/', auth, async (req, res) => {
     const physicalGrams = req.body.physicalWeightMg
       ? req.body.physicalWeightMg / 1000
       : req.body.physicalWeightGrams;
-    const purity = req.body.purity || job.purity;
-    const pureGrams = physicalGrams * purity;
 
     const issuance = await MaterialIssuance.create({
       transactionId: `ISS-${uuidv4().slice(0, 8).toUpperCase()}`,
@@ -53,9 +51,6 @@ router.post('/', auth, async (req, res) => {
       karagarId: job.karagarId,
       karagarName: job.karagarName,
       physicalWeightGrams: physicalGrams,
-      pureGoldEquivalentGrams: pureGrams,
-      purity,
-      meltingGroup: job.meltingGroup,
       notes: req.body.notes,
       managerOcrGrams: req.body.managerOcrGrams ?? null,
       ocrConfidence: req.body.ocrConfidence ?? null,

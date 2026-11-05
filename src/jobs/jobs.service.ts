@@ -33,7 +33,6 @@ export class JobsService {
     const filter: Record<string, unknown> = {};
     if (query.karagarId) filter['karagarId'] = new Types.ObjectId(query.karagarId);
     if (query.status) filter['status'] = query.status;
-    if (query.meltingGroup) filter['meltingGroup'] = query.meltingGroup;
 
     const [jobs, total] = await Promise.all([
       this.jobModel.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
@@ -121,9 +120,9 @@ export class JobsService {
   private toGrams = (job: Record<string, unknown>) => {
     return {
       ...job,
-      requiredWeightGrams: (job['requiredWeightMg'] as number) / 1000,
-      issuedWeightGrams: (job['totalIssuedMg'] as number) / 1000,
-      returnedWeightGrams: (job['totalReturnedMg'] as number) / 1000,
+      requiredWeightGrams: ((job['requiredWeightMg'] as number) ?? 0) / 1000,
+      issuedWeightGrams: ((job['totalIssuedMg'] as number) ?? 0) / 1000,
+      returnedWeightGrams: ((job['totalReturnedMg'] as number) ?? 0) / 1000,
     };
   };
 
