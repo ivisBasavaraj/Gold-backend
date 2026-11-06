@@ -21,6 +21,16 @@ export class AdvancesController {
     return ApiResponse.ok(await this.service.findAll(query));
   }
 
+  @Get('my')
+  @Roles(UserRole.KARAGAR)
+  @ApiOperation({ summary: 'List advances for the logged-in karagar' })
+  async findMine(
+    @Query() query: AdvanceQueryDto,
+    @CurrentUser() user: { id: string },
+  ) {
+    return ApiResponse.ok(await this.service.findMine(user.id, query));
+  }
+
   @Get('karagar/:karagarId/balance')
   @Roles(UserRole.MANAGER, UserRole.ADMIN)
   @ApiOperation({ summary: 'Get outstanding advance balance for a karagar' })

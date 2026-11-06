@@ -25,6 +25,12 @@ export class PayrollService {
     return { items: items.map(this.toRupees), total, page, limit };
   }
 
+  async findMine(userId: string, query: PayrollQueryDto) {
+    const karagar = await this.karagarModel.findOne({ userId: new Types.ObjectId(userId) }).lean();
+    if (!karagar) return { items: [], total: 0, page: 1, limit: 100 };
+    return this.findAll({ ...query, karagarId: (karagar._id as Types.ObjectId).toString() });
+  }
+
   async findOne(id: string) {
     const payroll = await this.payrollModel.findById(id).lean();
     if (!payroll) throw new NotFoundException('Payroll not found.');

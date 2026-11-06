@@ -4,6 +4,7 @@ import { PayrollService } from './payroll.service';
 import { CreatePayrollDto, UpdatePayrollDto, PayrollQueryDto } from './payroll.dto';
 import { JwtAuthGuard, RolesGuard } from '../common/guards/auth.guard';
 import { Roles, UserRole } from '../common/decorators/roles.decorator';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { ApiResponse } from '../common/dto/api-response.dto';
 
 @ApiTags('Payroll')
@@ -18,6 +19,16 @@ export class PayrollController {
   @ApiOperation({ summary: 'List payrolls' })
   async findAll(@Query() query: PayrollQueryDto) {
     return ApiResponse.ok(await this.service.findAll(query));
+  }
+
+  @Get('my')
+  @Roles(UserRole.KARAGAR)
+  @ApiOperation({ summary: 'List payrolls for the logged-in karagar' })
+  async findMine(
+    @Query() query: PayrollQueryDto,
+    @CurrentUser() user: { id: string },
+  ) {
+    return ApiResponse.ok(await this.service.findMine(user.id, query));
   }
 
   @Get(':id')
