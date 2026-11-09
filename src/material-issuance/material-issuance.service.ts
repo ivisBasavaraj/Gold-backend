@@ -24,10 +24,16 @@ export class MaterialIssuanceService {
     if (query.jobId) filter['jobId'] = new Types.ObjectId(query.jobId);
     if (query.karagarId) filter['karagarId'] = new Types.ObjectId(query.karagarId);
 
-    const [items, total] = await Promise.all([
+    const [rawItems, total] = await Promise.all([
       this.issuanceModel.find(filter).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean(),
       this.issuanceModel.countDocuments(filter),
     ]);
+
+    const jobIds = [...new Set(rawItems.map((i) => i.jobId?.toString()).filter(Boolean))];
+    const jobs = await this.jobModel.find({ _id: { $in: jobIds } }).select('title').lean();
+    const jobMap = Object.fromEntries(jobs.map((j) => [(j._id as Types.ObjectId).toString(), j.title]));
+
+    const items = rawItems.map((i) => ({ ...i, jobTitle: jobMap[i.jobId?.toString()] ?? null }));
     return { items, total, page, limit, totalPages: Math.ceil(total / limit) };
   }
 

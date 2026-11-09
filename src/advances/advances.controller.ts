@@ -31,18 +31,18 @@ export class AdvancesController {
     return ApiResponse.ok(await this.service.findMine(user.id, query));
   }
 
-  @Get('karagar/:karagarId/balance')
-  @Roles(UserRole.MANAGER, UserRole.ADMIN)
-  @ApiOperation({ summary: 'Get outstanding advance balance for a karagar' })
-  async getBalance(@Param('karagarId') karagarId: string) {
-    return ApiResponse.ok(await this.service.getKaragarBalance(karagarId));
-  }
-
   @Get(':id')
   @Roles(UserRole.MANAGER, UserRole.ADMIN)
   @ApiOperation({ summary: 'Get advance with repayment history' })
   async findOne(@Param('id') id: string) {
     return ApiResponse.ok(await this.service.findOne(id));
+  }
+
+  @Get('karagar/:karagarId/balance')
+  @Roles(UserRole.MANAGER, UserRole.ADMIN)
+  @ApiOperation({ summary: 'Get outstanding advance balance for a karagar' })
+  async getBalance(@Param('karagarId') karagarId: string) {
+    return ApiResponse.ok(await this.service.getKaragarBalance(karagarId));
   }
 
   @Post()
