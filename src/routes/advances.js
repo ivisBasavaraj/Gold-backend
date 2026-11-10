@@ -25,6 +25,22 @@ router.get('/', auth, async (req, res) => {
   }
 });
 
+// GET /advances/my — karagar sees only their own advances (karagarId from token)
+router.get('/my', auth, async (req, res) => {
+  try {
+    if (!req.user.karagarId) {
+      return res.status(403).json({ message: 'No karagar profile linked to this account' });
+    }
+    const limit = parseInt(req.query.limit) || 100;
+    const items = await Advance.find({ karagarId: req.user.karagarId })
+      .sort({ createdAt: -1 })
+      .limit(limit);
+    res.json({ data: { items, total: items.length } });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
 // GET /advances/karagar/:karagarId/balance
 router.get('/karagar/:karagarId/balance', auth, async (req, res) => {
   try {
