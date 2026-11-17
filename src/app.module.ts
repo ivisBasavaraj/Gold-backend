@@ -12,7 +12,6 @@ import { AdvancesModule } from './advances/advances.module';
 import { PayrollModule } from './payroll/payroll.module';
 import { TreasuryModule } from './treasury/treasury.module';
 import { ReportsModule } from './reports/reports.module';
-import { OcrModule } from './ocr/ocr.module';
 
 @Module({
   imports: [
@@ -31,7 +30,6 @@ import { OcrModule } from './ocr/ocr.module';
     PayrollModule,
     TreasuryModule,
     ReportsModule,
-    OcrModule,
   ],
 })
 export class AppModule {}
