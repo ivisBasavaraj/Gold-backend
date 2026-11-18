@@ -1,0 +1,8 @@
+
+> goldcraft-backend@1.0.0 start
+> node src/index.js
+
+MongoDB connected
+GoldCraft backend running on http://localhost:3000
+
+D:\Pushpa Chains\backend>

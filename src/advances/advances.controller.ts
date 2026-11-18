@@ -14,13 +14,6 @@ import { ApiResponse } from '../common/dto/api-response.dto';
 export class AdvancesController {
   constructor(private readonly service: AdvancesService) {}
 
-  @Get()
-  @Roles(UserRole.MANAGER, UserRole.ADMIN)
-  @ApiOperation({ summary: 'List advances' })
-  async findAll(@Query() query: AdvanceQueryDto) {
-    return ApiResponse.ok(await this.service.findAll(query));
-  }
-
   @Get('my')
   @Roles(UserRole.KARAGAR)
   @ApiOperation({ summary: 'List advances for the logged-in karagar' })
@@ -31,11 +24,11 @@ export class AdvancesController {
     return ApiResponse.ok(await this.service.findMine(user.id, query));
   }
 
-  @Get('karagar/:karagarId/balance')
+  @Get()
   @Roles(UserRole.MANAGER, UserRole.ADMIN)
-  @ApiOperation({ summary: 'Get outstanding advance balance for a karagar' })
-  async getBalance(@Param('karagarId') karagarId: string) {
-    return ApiResponse.ok(await this.service.getKaragarBalance(karagarId));
+  @ApiOperation({ summary: 'List advances' })
+  async findAll(@Query() query: AdvanceQueryDto) {
+    return ApiResponse.ok(await this.service.findAll(query));
   }
 
   @Get(':id')
@@ -43,6 +36,13 @@ export class AdvancesController {
   @ApiOperation({ summary: 'Get advance with repayment history' })
   async findOne(@Param('id') id: string) {
     return ApiResponse.ok(await this.service.findOne(id));
+  }
+
+  @Get('karagar/:karagarId/balance')
+  @Roles(UserRole.MANAGER, UserRole.ADMIN)
+  @ApiOperation({ summary: 'Get outstanding advance balance for a karagar' })
+  async getBalance(@Param('karagarId') karagarId: string) {
+    return ApiResponse.ok(await this.service.getKaragarBalance(karagarId));
   }
 
   @Post()
