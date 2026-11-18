@@ -2,6 +2,24 @@ const router = require('express').Router();
 const Job = require('../models/Job');
 const Karagar = require('../models/Karagar');
 const { auth, requireRole } = require('../middleware/auth');
+const multer = require('multer');
+const fs = require('fs');
+const path = require('path');
+const { v4: uuidv4 } = require('uuid');
+
+const verificationUploadDir = path.join(__dirname, '../../uploads/ocr');
+fs.mkdirSync(verificationUploadDir, { recursive: true });
+const verificationEvidenceUpload = multer({
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, verificationUploadDir),
+    filename: (_req, file, cb) => {
+      const extension = path.extname(file.originalname || '').toLowerCase() || '.jpg';
+      cb(null, `recipient-scale-${Date.now()}-${uuidv4().slice(0, 8)}${extension}`);
+    },
+  }),
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => cb(null, file.mimetype.startsWith('image/')),
+});
 
 function toGrams(job) {
   const j = job.toObject ? job.toObject() : { ...job };
@@ -85,18 +103,28 @@ router.post('/', auth, requireRole('admin', 'manager'), async (req, res) => {
 });
 
 // POST /jobs/:id/verify-ocr — karagar scans scale to verify weight matches manager's reading
-router.post('/:id/verify-ocr', auth, async (req, res) => {
+router.post('/:id/verify-ocr', auth, verificationEvidenceUpload.single('karagarOcrImage'), async (req, res) => {
   try {
     const job = await Job.findById(req.params.id);
     if (!job) return res.status(404).json({ message: 'Job not found' });
+    if (!req.user.karagarId || String(job.karagarId) !== String(req.user.karagarId)) {
+      return res.status(403).json({ message: 'Only the assigned karagar can verify this issuance' });
+    }
 
     const karagarOcrGrams = Number(req.body.karagarOcrGrams);
-    if (!karagarOcrGrams || karagarOcrGrams <= 0)
+    if (!Number.isFinite(karagarOcrGrams) || karagarOcrGrams <= 0)
       return res.status(400).json({ message: 'karagarOcrGrams required' });
+    if (!req.file) return res.status(400).json({ message: 'Karagar OCR evidence image is required' });
+
+    const verificationEvidence = {
+      karagarOcrGrams,
+      karagarOcrImageUrl: `/uploads/ocr/${req.file.filename}`,
+      karagarOcrCapturedAt: new Date(),
+    };
 
     // If manager did not scan, skip verification and allow start
     if (job.managerOcrGrams == null) {
-      await Job.findByIdAndUpdate(job._id, { karagarOcrGrams, ocrVerified: true });
+      await Job.findByIdAndUpdate(job._id, { ...verificationEvidence, ocrVerified: true });
       return res.json({ data: { verified: true, message: 'No manager OCR on record — verification skipped' } });
     }
 
@@ -104,7 +132,7 @@ router.post('/:id/verify-ocr', auth, async (req, res) => {
     const diff = Math.abs(karagarOcrGrams - job.managerOcrGrams);
     const verified = diff <= tolerance;
 
-    await Job.findByIdAndUpdate(job._id, { karagarOcrGrams, ocrVerified: verified });
+    await Job.findByIdAndUpdate(job._id, { ...verificationEvidence, ocrVerified: verified });
 
     if (!verified) {
       return res.status(409).json({
@@ -126,6 +154,11 @@ router.patch('/:id', auth, async (req, res) => {
     const update = {};
     allowed.forEach(f => { if (req.body[f] !== undefined) update[f] = req.body[f]; });
 
+    const currentJob = await Job.findById(req.params.id);
+    if (!currentJob) return res.status(404).json({ message: 'Job not found' });
+    if (update.status === 'inProgress' && currentJob.managerOcrGrams != null && !currentJob.ocrVerified) {
+      return res.status(409).json({ message: 'Karagar scale verification is required before starting this job' });
+    }
     const job = await Job.findByIdAndUpdate(req.params.id, update, { new: true, runValidators: true });
     if (!job) return res.status(404).json({ message: 'Job not found' });
 
@@ -134,6 +167,22 @@ router.patch('/:id', auth, async (req, res) => {
       await Karagar.findByIdAndUpdate(job.karagarId, { $inc: { activeJobCount: -1 } });
     }
 
+    res.json({ data: toGrams(job) });
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+});
+
+// Compatibility endpoint used by the Flutter job screen.
+router.post('/:id/status', auth, async (req, res) => {
+  try {
+    const job = await Job.findById(req.params.id);
+    if (!job) return res.status(404).json({ message: 'Job not found' });
+    if (req.body.status === 'inProgress' && job.managerOcrGrams != null && !job.ocrVerified) {
+      return res.status(409).json({ message: 'Karagar scale verification is required before starting this job' });
+    }
+    job.status = req.body.status;
+    await job.save();
     res.json({ data: toGrams(job) });
   } catch (err) {
     res.status(400).json({ message: err.message });

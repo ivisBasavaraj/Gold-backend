@@ -18,6 +18,8 @@ const jobSchema = new mongoose.Schema({
   // OCR verification
   managerOcrGrams: { type: Number },          // OCR reading at time of issuance
   karagarOcrGrams: { type: Number },          // OCR reading when karagar starts job
+  karagarOcrImageUrl: { type: String },
+  karagarOcrCapturedAt: { type: Date },
   ocrVerified: { type: Boolean, default: false }, // true when both readings match
   ocrToleranceGrams: { type: Number, default: 0.5 }, // allowed mismatch
 }, { timestamps: true });

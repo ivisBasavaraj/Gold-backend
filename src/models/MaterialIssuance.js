@@ -11,6 +11,9 @@ const issuanceSchema = new mongoose.Schema({
   managerOcrGrams: { type: Number },
   ocrConfidence: { type: Number },
   ocrImageUrl: { type: String },
+  // Server time at which the supporting scale image was received. This is
+  // deliberately server-generated rather than supplied by the device.
+  ocrCapturedAt: { type: Date },
 }, { timestamps: true });
 
 module.exports = mongoose.model('MaterialIssuance', issuanceSchema);

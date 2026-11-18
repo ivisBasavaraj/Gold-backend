@@ -1,10 +1,27 @@
 const router = require('express').Router();
 const { v4: uuidv4 } = require('uuid');
+const fs = require('fs');
+const path = require('path');
+const multer = require('multer');
 const MaterialIssuance = require('../models/MaterialIssuance');
 const Job = require('../models/Job');
 const Karagar = require('../models/Karagar');
 const { Treasury, TreasuryTx } = require('../models/Treasury');
-const { auth } = require('../middleware/auth');
+const { auth, requireRole } = require('../middleware/auth');
+
+const ocrUploadDir = path.join(__dirname, '../../uploads/ocr');
+fs.mkdirSync(ocrUploadDir, { recursive: true });
+const ocrEvidenceUpload = multer({
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, ocrUploadDir),
+    filename: (_req, file, cb) => {
+      const extension = path.extname(file.originalname || '').toLowerCase() || '.jpg';
+      cb(null, `scale-${Date.now()}-${uuidv4().slice(0, 8)}${extension}`);
+    },
+  }),
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => cb(null, file.mimetype.startsWith('image/')),
+});
 
 // GET /material-issuance/my — karagar sees only their own records (karagarId from token)
 router.get('/my', auth, async (req, res) => {
@@ -36,15 +53,22 @@ router.get('/', auth, async (req, res) => {
 });
 
 // POST /material-issuance
-router.post('/', auth, async (req, res) => {
+router.post('/', auth, requireRole('admin', 'manager'), ocrEvidenceUpload.single('ocrImage'), async (req, res) => {
   try {
     const job = await Job.findById(req.body.jobId);
     if (!job) return res.status(404).json({ message: 'Job not found' });
 
-    const physicalGrams = req.body.physicalWeightMg
-      ? req.body.physicalWeightMg / 1000
-      : req.body.physicalWeightGrams;
+    // Issuance weight is exclusively the OCR reading. Never accept a client
+    // supplied physical weight, because it could differ from the scale proof.
+    const physicalGrams = Number(req.body.managerOcrGrams);
+    if (!Number.isFinite(physicalGrams) || physicalGrams <= 0) {
+      return res.status(400).json({ message: 'A valid manager OCR scale reading is required' });
+    }
+    if (!req.file) {
+      return res.status(400).json({ message: 'OCR evidence image is required' });
+    }
 
+    const evidencePath = req.file ? `/uploads/ocr/${req.file.filename}` : null;
     const issuance = await MaterialIssuance.create({
       transactionId: `ISS-${uuidv4().slice(0, 8).toUpperCase()}`,
       jobId: job._id,
@@ -52,19 +76,21 @@ router.post('/', auth, async (req, res) => {
       karagarName: job.karagarName,
       physicalWeightGrams: physicalGrams,
       notes: req.body.notes,
-      managerOcrGrams: req.body.managerOcrGrams ?? null,
+      managerOcrGrams: physicalGrams,
       ocrConfidence: req.body.ocrConfidence ?? null,
+      ocrImageUrl: evidencePath,
+      ocrCapturedAt: new Date(),
     });
 
     // Store manager OCR reading on the job for karagar verification
     const jobUpdate = {
       $inc: { issuedWeightGrams: physicalGrams },
-      status: 'inProgress',
+      // Every new issuance needs a fresh recipient verification before work
+      // can start or resume.
+      status: 'assigned',
+      managerOcrGrams: physicalGrams,
+      ocrVerified: false,
     };
-    if (req.body.managerOcrGrams != null) {
-      jobUpdate.managerOcrGrams = req.body.managerOcrGrams;
-      jobUpdate.ocrVerified = false;
-    }
     await Job.findByIdAndUpdate(job._id, jobUpdate);
 
     // Update karagar totals

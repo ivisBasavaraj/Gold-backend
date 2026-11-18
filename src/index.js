@@ -2,11 +2,15 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
+const path = require('path');
 
 const app = express();
 
 app.use(cors({ origin: '*' }));
 app.use(express.json());
+// Scale-capture evidence is retained with the issuance record and is read-only
+// through this public path. Uploads themselves remain authenticated.
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // Request logger
 app.use((req, _res, next) => {
