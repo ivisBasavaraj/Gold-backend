@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Payroll, PayrollDocument } from './payroll.schema';
@@ -41,12 +41,24 @@ export class PayrollService {
     const karagar = await this.karagarModel.findById(dto.karagarId).lean();
     if (!karagar) throw new NotFoundException('Karagar not found.');
 
+    const paidPaise = Math.round(dto.paidRupees * 100);
+    const netPayablePaise = paidPaise;
     const payroll = await this.payrollModel.create({
       karagarId: new Types.ObjectId(dto.karagarId),
       karagarName: karagar.name,
       periodStart: new Date(dto.periodStart),
       periodEnd: new Date(dto.periodEnd),
-      paidPaise: Math.round(dto.paidRupees * 100),
+      status: paidPaise > 0 ? 'paid' : 'draft',
+      jobsDone: 0,
+      grossLaborPaise: paidPaise,
+      approvedIncentivePaise: 0,
+      approvedPenaltyPaise: 0,
+      advanceDeductionPaise: 0,
+      netPayablePaise,
+      paidPaise,
+      actualWastageMg: 0,
+      allowedWastageMg: 0,
+      wastageStatus: 'withinAllowance',
       notes: dto.notes,
     });
     return this.toRupees(payroll.toObject());
@@ -56,7 +68,19 @@ export class PayrollService {
     const payroll = await this.payrollModel.findById(id);
     if (!payroll) throw new NotFoundException('Payroll not found.');
 
-    if (dto.paidRupees !== undefined) payroll.paidPaise = Math.round(dto.paidRupees * 100);
+    if (dto.paidRupees !== undefined) {
+      const paidPaise = Math.round(dto.paidRupees * 100);
+      const netPayablePaise = payroll.netPayablePaise ?? paidPaise;
+      if (paidPaise > netPayablePaise) {
+        throw new BadRequestException('paidRupees cannot exceed netPayableRupees.');
+      }
+      payroll.paidPaise = paidPaise;
+      payroll.status = paidPaise >= netPayablePaise
+        ? 'paid'
+        : paidPaise > 0
+          ? 'partiallyPaid'
+          : 'approved';
+    }
     if (dto.notes !== undefined) payroll.notes = dto.notes;
     await payroll.save();
     return this.toRupees(payroll.toObject());
@@ -69,5 +93,12 @@ export class PayrollService {
   private toRupees = (doc: Record<string, unknown>) => ({
     ...doc,
     paidRupees: ((doc['paidPaise'] as number) ?? 0) / 100,
+    grossLaborRupees: ((doc['grossLaborPaise'] as number) ?? 0) / 100,
+    approvedIncentiveRupees: ((doc['approvedIncentivePaise'] as number) ?? 0) / 100,
+    approvedPenaltyRupees: ((doc['approvedPenaltyPaise'] as number) ?? 0) / 100,
+    advanceDeductionRupees: ((doc['advanceDeductionPaise'] as number) ?? 0) / 100,
+    netPayableRupees: ((doc['netPayablePaise'] as number) ?? 0) / 100,
+    actualWastageGrams: ((doc['actualWastageMg'] as number) ?? 0) / 1000,
+    allowedWastageGrams: ((doc['allowedWastageMg'] as number) ?? 0) / 1000,
   });
 }

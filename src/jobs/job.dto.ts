@@ -7,9 +7,9 @@ export class CreateJobDto {
   @IsString() @IsNotEmpty()
   title: string;
 
-  @ApiProperty({ example: 120000, description: 'Weight in milligrams' })
-  @IsNumber() @Min(1)
-  requiredWeightMg: number;
+  @ApiPropertyOptional({ example: 120000, description: 'Weight in milligrams' })
+  @IsOptional() @IsNumber() @Min(0)
+  requiredWeightMg?: number;
 
   @ApiProperty({ example: 'karagar_id_here' })
   @IsString() @IsNotEmpty()

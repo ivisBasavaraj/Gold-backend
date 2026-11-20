@@ -15,7 +15,7 @@ export class CreatePayrollDto {
   periodEnd: string;
 
   @ApiProperty({ description: 'Amount paid in rupees' })
-  @IsNumber() @Min(0)
+  @IsNumber() @Min(0.01)
   paidRupees: number;
 
   @ApiPropertyOptional()

@@ -20,7 +20,7 @@ export class Job {
   title: string;
 
   // Stored in milligrams (integer) — display as grams (÷1000)
-  @Prop({ required: true, min: 1 })
+  @Prop({ default: 0 })
   requiredWeightMg: number;
 
   @Prop({ required: true })

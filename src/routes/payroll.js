@@ -93,14 +93,18 @@ router.post('/', auth, requireRole('admin', 'manager'), async (req, res) => {
     if (!karagarId || !periodStart || !periodEnd)
       return res.status(400).json({ message: 'karagarId, periodStart, periodEnd required' });
 
+    const paid = Number(paidRupees);
+    if (!Number.isFinite(paid) || paid <= 0)
+      return res.status(400).json({ message: 'paidRupees must be a positive number' });
+
     const karagar = await Karagar.findById(karagarId);
     if (!karagar) return res.status(404).json({ message: 'Karagar not found' });
-
-    const paid = Number(paidRupees) || 0;
 
     // Count completed jobs in the period for display purposes
     const start = new Date(periodStart);
     const end   = new Date(periodEnd);
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || start > end)
+      return res.status(400).json({ message: 'Invalid pay period' });
     end.setHours(23, 59, 59, 999);
     const kId = new mongoose.Types.ObjectId(karagarId);
     const completedJobs = await Job.find({
@@ -112,8 +116,8 @@ router.post('/', auth, requireRole('admin', 'manager'), async (req, res) => {
     const pendingAdvances = await Advance.find({ karagarId: kId, fullyRepaid: false });
     const advanceDeduction = pendingAdvances.reduce((s, a) => s + (a.amountRupees - a.repaidRupees), 0);
 
-    const netPayable = paid; // manager decides the amount; treat paidRupees as net
-    const status = paid > 0 ? 'paid' : 'draft';
+    const netPayable = Math.max(0, paid - advanceDeduction);
+    const status = paid >= netPayable ? 'paid' : 'partiallyPaid';
 
     const payroll = await Payroll.create({
       karagarId: karagar._id,
@@ -126,7 +130,7 @@ router.post('/', auth, requireRole('admin', 'manager'), async (req, res) => {
       approvedIncentiveRupees: 0,
       approvedPenaltyRupees:   0,
       advanceDeductionRupees:  advanceDeduction,
-      netPayableRupees:        paid,
+      netPayableRupees:        netPayable,
       paidRupees:              paid,
       actualWastageGrams:      0,
       allowedWastageGrams:     0,
@@ -136,7 +140,7 @@ router.post('/', auth, requireRole('admin', 'manager'), async (req, res) => {
 
     // Mark advances as settled if payment covers them
     if (paid > 0 && advanceDeduction > 0) {
-      let toSettle = advanceDeduction;
+      let toSettle = Math.min(paid, advanceDeduction);
       for (const adv of pendingAdvances.sort((a, b) => a.createdAt - b.createdAt)) {
         if (toSettle <= 0) break;
         const outstanding = adv.amountRupees - adv.repaidRupees;
@@ -198,9 +202,21 @@ router.post('/:id/approve', auth, requireRole('admin', 'manager'), async (req, r
       return res.status(400).json({ message: `Cannot approve a payroll with status '${payroll.status}'` });
 
     // Manager can optionally override gross labor & adjustments at approve time
-    if (req.body.grossLaborRupees   !== undefined) payroll.grossLaborRupees   = Number(req.body.grossLaborRupees);
-    if (req.body.approvedIncentiveRupees !== undefined) payroll.approvedIncentiveRupees = Number(req.body.approvedIncentiveRupees);
-    if (req.body.approvedPenaltyRupees   !== undefined) payroll.approvedPenaltyRupees   = Number(req.body.approvedPenaltyRupees);
+    if (req.body.grossLaborRupees !== undefined) {
+      const value = Number(req.body.grossLaborRupees);
+      if (!Number.isFinite(value) || value < 0) return res.status(400).json({ message: 'grossLaborRupees must be zero or positive' });
+      payroll.grossLaborRupees = value;
+    }
+    if (req.body.approvedIncentiveRupees !== undefined) {
+      const value = Number(req.body.approvedIncentiveRupees);
+      if (!Number.isFinite(value) || value < 0) return res.status(400).json({ message: 'approvedIncentiveRupees must be zero or positive' });
+      payroll.approvedIncentiveRupees = value;
+    }
+    if (req.body.approvedPenaltyRupees !== undefined) {
+      const value = Number(req.body.approvedPenaltyRupees);
+      if (!Number.isFinite(value) || value < 0) return res.status(400).json({ message: 'approvedPenaltyRupees must be zero or positive' });
+      payroll.approvedPenaltyRupees = value;
+    }
     if (req.body.notes !== undefined) payroll.notes = req.body.notes;
 
     // Auto-deduct outstanding advances for this karagar
@@ -237,8 +253,12 @@ router.post('/:id/payment', auth, requireRole('admin', 'manager'), async (req, r
       ? Number(req.body.amountRupees)
       : Number(req.body.amountPaise) / 100;
 
-    if (!amount || amount <= 0)
+    if (!Number.isFinite(amount) || amount <= 0)
       return res.status(400).json({ message: 'amountRupees must be a positive number' });
+
+    const remaining = Math.max(0, payroll.netPayableRupees - payroll.paidRupees);
+    if (amount > remaining)
+      return res.status(400).json({ message: `Payment cannot exceed remaining amount of ₹${remaining.toFixed(2)}` });
 
     payroll.paidRupees += amount;
 
@@ -283,7 +303,17 @@ router.patch('/:id', auth, requireRole('admin', 'manager'), async (req, res) => 
     const payroll = await Payroll.findById(req.params.id);
     if (!payroll) return res.status(404).json({ message: 'Payroll not found' });
 
-    if (req.body.paidRupees !== undefined) payroll.paidRupees = Number(req.body.paidRupees);
+    if (req.body.paidRupees !== undefined) {
+      const paid = Number(req.body.paidRupees);
+      if (!Number.isFinite(paid) || paid < 0)
+        return res.status(400).json({ message: 'paidRupees must be zero or positive' });
+      if (paid > payroll.netPayableRupees)
+        return res.status(400).json({ message: 'paidRupees cannot exceed netPayableRupees' });
+      payroll.paidRupees = paid;
+      if (paid >= payroll.netPayableRupees) payroll.status = 'paid';
+      else if (paid > 0) payroll.status = 'partiallyPaid';
+      else payroll.status = payroll.status === 'draft' ? 'draft' : 'approved';
+    }
     if (req.body.notes      !== undefined) payroll.notes      = req.body.notes;
     await payroll.save();
 

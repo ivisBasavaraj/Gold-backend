@@ -10,9 +10,11 @@ const treasurySchema = new mongoose.Schema({
 const treasuryTxSchema = new mongoose.Schema({
   type: { type: String, required: true },
   description: String,
+  note: String,
   amountMg: { type: Number, required: true },
   balanceAfterMg: { type: Number, required: true },
   refId: String,
+  performedBy: String, // name of the admin/manager who made the change
 }, { timestamps: true });
 
 treasuryTxSchema.virtual('weightGrams').get(function () {

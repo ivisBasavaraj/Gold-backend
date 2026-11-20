@@ -20,6 +20,36 @@ export class Payroll {
   @Prop({ default: 0 })
   paidPaise: number;
 
+  @Prop({ default: 'draft', enum: ['draft', 'underReview', 'approved', 'partiallyPaid', 'paid'] })
+  status: string;
+
+  @Prop({ default: 0 })
+  jobsDone: number;
+
+  @Prop({ default: 0 })
+  grossLaborPaise: number;
+
+  @Prop({ default: 0 })
+  approvedIncentivePaise: number;
+
+  @Prop({ default: 0 })
+  approvedPenaltyPaise: number;
+
+  @Prop({ default: 0 })
+  advanceDeductionPaise: number;
+
+  @Prop({ default: 0 })
+  netPayablePaise: number;
+
+  @Prop({ default: 0 })
+  actualWastageMg: number;
+
+  @Prop({ default: 0 })
+  allowedWastageMg: number;
+
+  @Prop({ default: 'withinAllowance', enum: ['withinAllowance', 'excess'] })
+  wastageStatus: string;
+
   @Prop()
   notes?: string;
 }

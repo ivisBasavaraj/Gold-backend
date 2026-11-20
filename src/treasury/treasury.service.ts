@@ -1,4 +1,4 @@
-import { Injectable, OnModuleInit } from '@nestjs/common';
+import { BadRequestException, Injectable, OnModuleInit } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { ConfigService } from '@nestjs/config';
@@ -100,6 +100,39 @@ export class TreasuryService implements OnModuleInit {
       authorizedBy,
       description: `Gold received — ${(amountMg / 1000).toFixed(3)} g`,
     });
+  }
+
+  async adjust(
+    amountMg: number,
+    isAdd: boolean,
+    note: string | undefined,
+    authorizedBy: Types.ObjectId,
+  ) {
+    if (!isAdd && (!note || !note.trim())) {
+      throw new BadRequestException('Reason for removal is required');
+    }
+
+    const balance = await this.getCurrentBalanceMg();
+    const signedAmountMg = isAdd ? amountMg : -amountMg;
+    const nextBalanceMg = balance + signedAmountMg;
+    if (nextBalanceMg < 0) {
+      throw new BadRequestException('Cannot remove more than available gold');
+    }
+
+    const cleanNote = note?.trim();
+    const description = cleanNote
+      ? `${isAdd ? 'Gold added' : 'Gold removed'} — ${(amountMg / 1000).toFixed(3)} g — ${cleanNote}`
+      : `Gold added — ${(amountMg / 1000).toFixed(3)} g`;
+
+    await this.txModel.create({
+      type: TreasuryTxType.ADJUSTMENT,
+      amountMg: signedAmountMg,
+      balanceAfterMg: nextBalanceMg,
+      authorizedBy,
+      description,
+    });
+
+    return this.getSummary();
   }
 
   private async seedOpeningBalance() {

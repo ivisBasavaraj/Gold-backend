@@ -2,15 +2,19 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
-const path = require('path');
+
+const mongoUri = process.env.MONGO_URI;
+if (!mongoUri) {
+  console.error(
+    'MONGO_URI is not set. Create Gold-backend/.env from .env.example and set your MongoDB connection string.'
+  );
+  process.exit(1);
+}
 
 const app = express();
 
 app.use(cors({ origin: '*' }));
 app.use(express.json());
-// Scale-capture evidence is retained with the issuance record and is read-only
-// through this public path. Uploads themselves remain authenticated.
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // Request logger
 app.use((req, _res, next) => {
@@ -44,7 +48,7 @@ app.use((err, _req, res, _next) => {
 });
 
 mongoose
-  .connect(process.env.MONGO_URI)
+  .connect(mongoUri)
   .then(() => {
     console.log('MongoDB connected');
     app.listen(process.env.PORT || 3000, () =>
