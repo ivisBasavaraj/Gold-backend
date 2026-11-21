@@ -70,7 +70,7 @@ router.post('/', auth, requireRole('admin', 'manager'), async (req, res) => {
     const job = await Job.create({
       jobNumber,
       title: req.body.title,
-      requiredWeightMg: req.body.requiredWeightMg,
+      requiredWeightMg: req.body.requiredWeightMg ?? 0,
       dueDate: req.body.dueDate,
       karagarId: karagar._id,
       karagarName: karagar.name,
