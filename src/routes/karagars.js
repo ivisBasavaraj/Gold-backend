@@ -1,6 +1,24 @@
 const router = require('express').Router();
 const Karagar = require('../models/Karagar');
+const fs = require('fs');
+const path = require('path');
+const multer = require('multer');
+const { v4: uuidv4 } = require('uuid');
 const { auth, requireRole } = require('../middleware/auth');
+
+const avatarUploadDir = path.join(__dirname, '../../uploads/karagars');
+fs.mkdirSync(avatarUploadDir, { recursive: true });
+const avatarUpload = multer({
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, avatarUploadDir),
+    filename: (_req, file, cb) => {
+      const extension = path.extname(file.originalname || '').toLowerCase() || '.jpg';
+      cb(null, `karagar-${Date.now()}-${uuidv4().slice(0, 8)}${extension}`);
+    },
+  }),
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => cb(null, file.mimetype.startsWith('image/')),
+});
 
 // GET /karagars
 router.get('/', auth, async (req, res) => {
@@ -36,21 +54,36 @@ router.get('/:id', auth, async (req, res) => {
 });
 
 // POST /karagars
-router.post('/', auth, requireRole('admin', 'manager'), async (req, res) => {
-  try {
-    const { name, employeeCode, meltingGroup, specialization, phone, avatarUrl } = req.body;
-    if (!name || !employeeCode || !meltingGroup || !specialization)
-      return res.status(400).json({ message: 'name, employeeCode, meltingGroup, specialization required' });
+router.post(
+  '/',
+  auth,
+  requireRole('admin', 'manager'),
+  avatarUpload.single('avatar'),
+  async (req, res) => {
+    try {
+      const { name, employeeCode, meltingGroup, specialization, phone } = req.body;
+      if (!name || !employeeCode || !meltingGroup || !specialization)
+        return res.status(400).json({ message: 'name, employeeCode, meltingGroup, specialization required' });
+      if (!req.file)
+        return res.status(400).json({ message: 'Karagar profile picture is required' });
 
-    const exists = await Karagar.findOne({ employeeCode });
-    if (exists) return res.status(409).json({ message: 'Employee code already exists' });
+      const exists = await Karagar.findOne({ employeeCode });
+      if (exists) return res.status(409).json({ message: 'Employee code already exists' });
 
-    const karagar = await Karagar.create({ name, employeeCode, meltingGroup, specialization, phone, avatarUrl });
-    res.status(201).json({ data: karagar });
-  } catch (err) {
-    res.status(400).json({ message: err.message });
-  }
-});
+      const karagar = await Karagar.create({
+        name,
+        employeeCode,
+        meltingGroup,
+        specialization,
+        phone,
+        avatarUrl: `/uploads/karagars/${req.file.filename}`,
+      });
+      res.status(201).json({ data: karagar });
+    } catch (err) {
+      res.status(400).json({ message: err.message });
+    }
+  },
+);
 
 // PATCH /karagars/:id
 router.patch('/:id', auth, requireRole('admin', 'manager'), async (req, res) => {
