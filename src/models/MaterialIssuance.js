@@ -11,6 +11,7 @@ const issuanceSchema = new mongoose.Schema({
   managerOcrGrams: { type: Number },
   ocrConfidence: { type: Number },
   ocrImageUrl: { type: String },
+  ocrCapturedAt: { type: Date },
 }, { timestamps: true });
 
 module.exports = mongoose.model('MaterialIssuance', issuanceSchema);

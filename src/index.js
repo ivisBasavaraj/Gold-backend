@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
+const path = require('path');
 
 const mongoUri = process.env.MONGO_URI;
 if (!mongoUri) {
@@ -15,6 +16,11 @@ const app = express();
 
 app.use(cors({ origin: '*' }));
 app.use(express.json());
+
+const uploadsDirectory = path.join(__dirname, '../uploads');
+const staticUploads = express.static(uploadsDirectory);
+app.use('/api/v1/uploads', staticUploads);
+app.use('/uploads', staticUploads);
 
 // Request logger
 app.use((req, _res, next) => {

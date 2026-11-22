@@ -13,14 +13,18 @@ const OCR_URL = process.env.OCR_SERVICE_URL || 'http://localhost:8001';
 // Proxies to Python OCR service and returns { reading, valueGrams, confidence }
 // Always returns 503 (never 5xx crash) when the service is down so
 // the Flutter client can detect unavailability and fall back to manual entry.
-router.post('/read-scale', auth, upload.single('image'), async (req, res) => {
+router.post('/read-scale', auth, upload.fields([
+  { name: 'image', maxCount: 1 },
+  { name: 'file', maxCount: 1 },
+]), async (req, res) => {
   try {
-    if (!req.file) return res.status(400).json({ message: 'No image uploaded' });
+    const file = req.files?.image?.[0] || req.files?.file?.[0];
+    if (!file) return res.status(400).json({ message: 'No image uploaded' });
 
     const form = new FormData();
-    form.append('file', req.file.buffer, {
-      filename: req.file.originalname || 'scale.jpg',
-      contentType: req.file.mimetype || 'image/jpeg',
+    form.append('file', file.buffer, {
+      filename: file.originalname || 'scale.jpg',
+      contentType: file.mimetype || 'image/jpeg',
     });
 
     const response = await axios.post(`${OCR_URL}/read-scale`, form, {
